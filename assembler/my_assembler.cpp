@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <stdlib.h>
+
+#include "asm_error_types.h"
 
 OpCodes GetOpCode(const char* command)
 {
@@ -37,13 +40,6 @@ int ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(const char* instruction
 {
     assert(instruction_filename != NULL);
     assert(binary_filename != NULL);
-
-    // структура для асма - хранишь тамЖ
-    // имя файла на вход и указатель на него
-    // имя файла на выход и указатель на него
-    // буффер с текстом из входного файла, вводится один раз
-    // буффер с кодами и аргументами инструкций (bytecode), выодится один раз
-    // для него конструктор и деструктор
 
     FILE* instruction_file = fopen(instruction_filename, "r");
     if (instruction_file == NULL)
@@ -110,7 +106,7 @@ int ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(const char* instruction
             break;
     }
 
-// Деструктор
+// ДобавитьДеструктор
     fclose(instruction_file);
     fclose(binary_file);
 
@@ -118,3 +114,48 @@ int ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(const char* instruction
     return counter_of_arguments;
 }
 
+
+int AssemblerCtor(Assembler* assembler_pointer, const char* input_filename, const char* output_filename, size_t starting_capacity)
+{
+    assert(assembler_pointer);
+    assert(input_filename);
+    assert(output_filename);
+
+    assembler_pointer -> instruction_filename = input_filename;
+    assembler_pointer -> binary_filename = output_filename;
+    assembler_pointer -> instructions_buffer = (char*) calloc(starting_capacity, sizeof(char));
+    assembler_pointer -> binary_buffer       = (int*) calloc(starting_capacity * 4, sizeof(int));
+    //FIXME добавить enum ошибок асма и написать AssemblerDump
+    // if (assembler_pointer -> instructions_buffer == NULL)
+    // {
+    //     int errors = ERROR_ALLOCATION_FAILED;
+    //     AssemblerDump(assembler_pointer, errors, "Allocating memory in AssembleCtor failed");
+    //     return errors;
+    // }
+
+    // if (assembler_pointer -> binary_buffer == NULL)
+    // {
+    //     int errors = ERROR_ALLOCATION_FAILED;
+    //     AssemblerDump(assembler_pointer, errors, "Allocating memory in AssembleCtor failed");
+    //     return errors;
+    // }
+
+    assembler_pointer -> instruction_file = NULL;
+    assembler_pointer -> binary_file = NULL;
+
+    return ERROR_NO;
+}
+
+void AssemblerDtor(Assembler* assembler_pointer)
+{
+    if (assembler_pointer -> instructions_buffer)
+        free(assembler_pointer -> instructions_buffer);
+
+    if (assembler_pointer -> binary_buffer)
+        free(assembler_pointer -> binary_buffer);
+
+    assembler_pointer -> instruction_filename = NULL;
+    assembler_pointer -> binary_filename = NULL;
+    assembler_pointer -> instruction_file = NULL;
+    assembler_pointer -> binary_file = NULL;
+}

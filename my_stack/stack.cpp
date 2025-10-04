@@ -4,11 +4,10 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "error_types.h"
+#include "stack_error_types.h"
 #include "my_defense.h"
 
 static const int kCanareika = 25022007;
-const int kPoison = 525252;
 static const int kGrowDataCoefficient = 2;
 
 #ifdef _DEBUG_CANARY

@@ -20,15 +20,19 @@ typedef enum {
 } OpCodes;
 
 typedef struct {
-    const char* instruction_filename;
-    const char* binary_filename;
+    const char* instruction_filename; // имя файла на вход и указатель на него
+    const char* binary_filename; // имя файла на выход и указатель на него
     FILE*       instruction_file;
     FILE*       binary_file;
-    char*       instructions_buffer;
+    char*       instructions_buffer; // буффер с текстом из входного файла, вводится один раз
+    int*        binary_buffer;
 } Assembler;
-
+//FIXME написать конструктор и деструктор этой структуры асма
 
 OpCodes GetOpCode(const char* command);
 int ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(const char* instruction_filename, const char* binary_filename);
+int AssemblerCtor(Assembler* assembler_pointer, const char* input_filename, const char* output_filename, size_t starting_capacity);
+void AssemblerDtor(Assembler* assembler_pointer);
+
 
 #endif //MY_ASSEMBLER

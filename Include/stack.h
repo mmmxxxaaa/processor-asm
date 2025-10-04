@@ -3,9 +3,9 @@
 
 #include <stdlib.h>
 
-#include "error_types.h"
+#include "stack_error_types.h"
 
-extern const int kPoison; //FIXME чота хуйня какая-то
+const int kPoison = 525252;
 
 #if defined(_DEBUG_CANARY) || defined(_DEBUG_HASH)
     #if defined(_DEBUG_HASH)

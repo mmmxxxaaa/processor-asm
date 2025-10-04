@@ -7,14 +7,16 @@
 #include <stdlib.h>
 #include <math.h>
 
-//содержит стек, массив с регистрами, счётчик инструкций, массив с кодом
 typedef struct {
     Stack stack;
     int registers[8];
     int instruction_counter;
-    int code_buffer[10]; //FIXME какая-то дичь
+    int* code_buffer;
 } Processor;
+//FIXME написать конструктор и деструктор этой структуры проца
 
+int ProcessorCtor(Processor* processor_pointer, size_t starting_capacity);
+void ProcessorDtor(Processor* processor_pointer);
 int ExecuteBinary(const char* filename);
 
 #endif // PROCESSOR_H_

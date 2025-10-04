@@ -35,7 +35,7 @@ int ExecuteBinary(const char* binary_filename)
     int op_code = OP_ERR;
     int argument = 0;
 
-    while (fread(&op_code, sizeof(int), 1, binary_file) == 1 &&
+    while (fread(&op_code, sizeof(int), 1, binary_file) == 1 &&   //FIXME ОЧЕНЬ ДОРОГО, нужно разом всё читать и хранить в буфере
            fread(&argument, sizeof(int), 1, binary_file) == 1)
     {
         switch (op_code)
@@ -168,4 +168,42 @@ int ExecuteBinary(const char* binary_filename)
     fclose(binary_file);
     StackDtor(&stack);
     return 0;
+}
+
+
+
+int ProcessorCtor(Processor* processor_pointer, size_t starting_capacity)
+{
+    assert(processor_pointer);
+    INIT(processor_stack); //FIXME что тут делать
+    processor_pointer -> stack = processor_stack;
+    StackCtor(&(processor_pointer -> stack), starting_capacity);
+    for (int i = 0; i < 8; i++)
+    {
+        processor_pointer->registers[i] = 0;
+    }
+    processor_pointer -> instruction_counter = 0;
+    processor_pointer -> code_buffer       = NULL;
+    //FIXME добавить enum ошибок проца и написать ProcessorDump
+    // if (processor_pointer -> code_buffer == NULL)
+    // {
+    //     int errors = ERROR_ALLOCATION_FAILED;
+    //     processorDump(processor_pointer, errors, "Allocating memory in AssembleCtor failed");
+    //     return errors;
+    // }
+
+    return ERROR_NO;
+}
+
+void ProcessorDtor(Processor* processor_pointer)
+{
+    if (processor_pointer -> code_buffer)
+        free(processor_pointer -> code_buffer);
+    StackDtor(&(processor_pointer -> stack));
+
+    for (int i = 0; i < 8; i++)
+    {
+        processor_pointer->registers[i] = 0;
+    }
+    processor_pointer -> instruction_counter = 0;
 }
