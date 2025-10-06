@@ -20,6 +20,7 @@ OpCodes GetOpCode(const char* command)
     COMPARE_COMMAND(command, MUL);
     COMPARE_COMMAND(command, DIV);
     COMPARE_COMMAND(command, SQRT);
+    COMPARE_COMMAND(command, IN);
     COMPARE_COMMAND(command, OUT);
 
     fprintf(stderr, "Error: Unknown command '%s'\n", command);
@@ -98,6 +99,7 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
             case OP_DIV:
             case OP_SQRT:
             case OP_OUT:
+            case OP_IN:
                 assembler_pointer->binary_buffer[binary_index++] = 0;
                 break;
 

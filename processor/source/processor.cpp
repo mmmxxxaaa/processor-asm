@@ -64,7 +64,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
     ProcessorErrorType proc_error = PROC_ERROR_NO;
     int stack_error = 0;
 
-    int binary_file_size = processor_pointer->code_buffer_size; //binary_file_size это уже количество интов в бинарнике
+    int binary_file_size = processor_pointer->code_buffer_size; //FIXME binary_file_size это уже количество интов в бинарнике
     int total_ints = binary_file_size - binary_file_size % 2; // чтоб не перескочить в цикле
 
     int* buffer = processor_pointer->code_buffer; //MENTOR нужно ли это делать, чтобы не тратить время на бег по стрелочке
@@ -121,6 +121,15 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 break;
             }
 
+            case OP_IN:
+            {
+                int value = 0;
+                printf("Enter a number: ");
+                scanf("%d", &value);
+                stack_error = StackPush(&processor_pointer->stack, value);
+                break;
+            }
+
             case OP_OUT:
             {
             // FIXME - проверку в поп
@@ -169,7 +178,8 @@ ProcessorErrorType ReadBinaryFileToBuffer(Processor* processor_pointer, const ch
         return PROC_ERROR_CANNOT_OPEN_BINARY_FILE;
 
     long int binary_file_size_bytes = GetSizeOfBinaryFile(binary_file);
-    if (binary_file_size_bytes <= 0){
+    if (binary_file_size_bytes <= 0)
+    {
         fclose(binary_file);
         return PROC_ERROR_READING_FILE;
     }

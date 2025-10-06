@@ -16,7 +16,8 @@ typedef enum {
     OP_MUL    =  5,
     OP_DIV    =  6,
     OP_SQRT   =  7,
-    OP_OUT    =  8
+    OP_OUT    =  8,
+    OP_IN     =  9
 } OpCodes;
 
 typedef struct {
