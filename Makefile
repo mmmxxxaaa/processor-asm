@@ -19,8 +19,8 @@ OBJ_FILES := $(SRC_FILES:.cpp=.o)
 
 all: clean stack
 
-debug: CXXFLAGS += -D _DEBUG_CANARY
-debug: CXXFLAGS += -D _DEBUG_HASH
+debug: CXXFLAGS += -D DEBUG_CANARY
+debug: CXXFLAGS += -D DEBUG_HASH
 debug: all
 
 stack: $(OBJ_FILES)

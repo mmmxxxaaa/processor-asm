@@ -1,6 +1,6 @@
 #!/bin/bash
 
-files="assembler/main_asm.cpp assembler/my_assembler.cpp"
+files="source/main_asm.cpp source/my_assembler.cpp"
 
 flags="-D _DEBUG -ggdb3 -std=c++17 -O0 -Wall -Wextra -Weffc++ -Waggressive-loop-optimizations \
     -Wc++14-compat -Wmissing-declarations -Wcast-align -Wcast-qual -Wchar-subscripts \
