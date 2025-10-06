@@ -22,6 +22,8 @@ OpCodes GetOpCode(const char* command)
     COMPARE_COMMAND(command, SQRT);
     COMPARE_COMMAND(command, IN);
     COMPARE_COMMAND(command, OUT);
+    COMPARE_COMMAND(command, PUSHR);
+    COMPARE_COMMAND(command, POPR);
 
     fprintf(stderr, "Error: Unknown command '%s'\n", command);
     return OP_ERR;
@@ -37,6 +39,8 @@ const char* GetAsmErrorString(AssemblerErrorType error)
         case ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE: return "Cannot open output file";
         case ASM_ERROR_READING_FILE: return "Error reading file";
         case ASM_ERROR_EXPECTED_ARGUMENT: return "Expected argument for PUSH";
+        case ASM_ERROR_EXPECTED_REGISTER: return "Expected argument (register)";
+        case ASM_ERROR_INVALID_REGISTER: return "Invalid register";
         default: return "Unknown error";
     }
 }
@@ -47,7 +51,6 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
 // FIXME Делай везде одинаково с этими стрелочками
     assert(assembler_pointer->binary_file);
 
-// FIXME - то, что выше - конструктор
     char command_name[MAX_COMMAND_LENGTH] = {0};
     int argument = 0;
     int binary_index = 0;
@@ -102,6 +105,31 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
             case OP_IN:
                 assembler_pointer->binary_buffer[binary_index++] = 0;
                 break;
+
+            case OP_POPR:
+            case OP_PUSHR:
+            {
+                while (*buffer_ptr == ' ' || *buffer_ptr == '\t') {
+                    buffer_ptr++;
+                }
+
+                char register_name[32] = {};
+                int read_count = sscanf(buffer_ptr, "%31s", register_name);
+
+                if (read_count != 1)
+                    return ASM_ERROR_EXPECTED_REGISTER;
+
+                RegCodes reg = GetRegisterByName(register_name);
+                if (reg == REG_INVALID)
+                    return ASM_ERROR_INVALID_REGISTER; //мб тут вывести еще регистры, которые пользователь может использовать
+
+                assembler_pointer->binary_buffer[binary_index++] = (int) reg;
+                buffer_ptr += strlen(register_name);
+
+                while (*buffer_ptr == ' ' || *buffer_ptr == '\n' || *buffer_ptr == '\r' || *buffer_ptr == '\t')
+                    buffer_ptr++;
+                break;
+            }
 
             default:
                 return ASM_ERROR_UNKNOWN_COMMAND;
@@ -264,4 +292,32 @@ long int GetFileSize(FILE* file)
     fseek(file, 0, SEEK_SET);
 
     return file_size;
+}
+
+const char* GetRegisterName(RegCodes reg)
+{
+    const char* register_names[] = {"RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"};
+
+    if (reg >= REG_RAX && reg <= REG_RHX) {
+        return register_names[reg];
+    }
+    return "UNKNOWN";
+}
+
+RegCodes GetRegisterByName(const char* name) {
+    const char* register_names[] = {
+        "RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"
+    };
+
+    for (int i = 0; i < kNRegisters; i++) {
+        if (strcmp(name, register_names[i]) == 0) {
+            return (RegCodes) i;
+        }
+    }
+    return REG_INVALID;
+}
+
+int IsValidRegister(RegCodes reg)
+{
+    return (reg >= REG_RAX && reg <= REG_RHX);
 }

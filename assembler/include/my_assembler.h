@@ -6,6 +6,8 @@
 
 #define MAX_COMMAND_LENGTH 10 //FIXME в константу
 
+const int kNRegisters = 8; //FIXME у меня эта константа и в ассемблере, и в процессоре объявляется (2 раза итого)
+
 typedef enum {
     OP_ERR    = -1,
     OP_HLT    =  0,
@@ -17,15 +19,29 @@ typedef enum {
     OP_DIV    =  6,
     OP_SQRT   =  7,
     OP_OUT    =  8,
-    OP_IN     =  9
+    OP_IN     =  9,
+    OP_PUSHR  = 33,
+    OP_POPR   = 34,
 } OpCodes;
+
+typedef enum {
+    REG_INVALID = -1,
+    REG_RAX = 0,
+    REG_RBX = 1,
+    REG_RCX = 2,
+    REG_RDX = 3,
+    REG_REX = 4,
+    REG_RFX = 5,
+    REG_RGX = 6,
+    REG_RHX = 7,
+} RegCodes;
 
 typedef struct {
     char* instruction_filename; // имя файла на вход и указатель на него
     char* binary_filename; // имя файла на выход и указатель на него
-    FILE*       binary_file;
-    char*       instructions_buffer; // буффер с текстом из входного файла, вводится один раз
-    int*        binary_buffer;
+    FILE* binary_file;
+    char* instructions_buffer; // буффер с текстом из входного файла, вводится один раз
+    int*  binary_buffer;
 } Assembler;
 //ДЕЛО СДЕЛАНО написать конструктор и деструктор этой структуры асма
 
@@ -40,5 +56,9 @@ void AssemblerDtor(Assembler* assembler_pointer);
 FILE* GetInputFile(const char* instruction_filename);
 FILE* GetOutputFile(const char* output_filename);
 long int GetFileSize(FILE* file);
+
+const char* GetRegisterName(RegCodes reg);
+RegCodes GetRegisterByName(const char* name);
+int IsValidRegister(RegCodes reg);
 
 #endif //MY_ASSEMBLER

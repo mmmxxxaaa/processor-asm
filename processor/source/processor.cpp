@@ -130,6 +130,38 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 break;
             }
 
+            case OP_PUSHR:
+            {
+                if (argument < 0 || argument >= kNRegisters)
+                {
+                    proc_error = PROC_ERROR_INVALID_REGISTER;
+                    break;
+                }
+                ElementType dusha_registra = processor_pointer->registers[argument];
+                stack_error = StackPush(&processor_pointer->stack, dusha_registra);
+
+                break;
+            }
+
+            case OP_POPR:
+            {
+                if (argument < 0 || argument >= kNRegisters)
+                {
+                    proc_error = PROC_ERROR_INVALID_REGISTER;
+                    break;
+                }
+
+                if (processor_pointer->stack.size == 0)
+                {
+                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
+                    break;
+                }
+
+                ElementType value = StackPop(&processor_pointer->stack);
+                processor_pointer->registers[argument] = value;
+                break;
+            }
+
             case OP_OUT:
             {
             // FIXME - проверку в поп

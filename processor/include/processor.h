@@ -7,20 +7,8 @@
 #include <math.h> //FIXME разобраться с инклюдами
 #include "proc_error_types.h"
 
-// #if defined(DEBUG_CANARY) || defined(DEBUG_HASH)
-//     #if defined(DEBUG_HASH)
-//         // Если определен DEBUG_HASH (с хэшем)
-//         #define INITPROC(name) Processor name = {{{__func__, __LINE__, __FILE__, #name, 0}, NULL, 0, 0}, {0}, 0, NULL}
-//     #else
-//         // Если определен только DEBUG_CANARY (без хэша)
-//         #define INITPROC(name) Processor name = {{{__func__, __LINE__, __FILE__, #name}, NULL, 0, 0}, {0}, 0, NULL}
-//     #endif
-// #else
-//     // Если ни один отладочный макрос не определен
-//     #define INITPROC(name) Processor name = {{NULL, 0, 0}, {0}, 0, NULL}
-// #endif // defined(DEBUG_CANARY) || defined(DEBUG_HASH)
-
-const int kNRegisters = 8;
+#include "my_assembler.h"
+// const int kNRegisters = 8; //FIXME у меня эта константа и в ассемблере, и в процессоре объявляется (2 раза итого)
 
 typedef struct {
     Stack stack;

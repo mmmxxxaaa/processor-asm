@@ -8,7 +8,9 @@ typedef enum {
     PROC_ERROR_READING_FILE            = 1 << 3,
     PROC_ERROR_UNKNOWN_OPCODE          = 1 << 4,
     PROC_ERROR_STACK_OPERATION_FAILED  = 1 << 5,
-    PROC_ERROR_INVALID_STATE           = 1 << 6
+    PROC_ERROR_INVALID_STATE           = 1 << 6,
+    PROC_ERROR_INVALID_REGISTER        = 1 << 7,
+
 } ProcessorErrorType;
 
 #endif // PROC_ERROR_TYPES_H_
