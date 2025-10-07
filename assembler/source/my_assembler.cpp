@@ -4,10 +4,12 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "asm_error_types.h"
 //СИГМА СКИБИДИ
 #define COMPARE_COMMAND(cmd, name) if (strcmp(command, #name) == 0) return OP_##name
+
 OpCodes GetOpCode(const char* command)
 {
     assert(command != NULL);
@@ -48,10 +50,9 @@ const char* GetAsmErrorString(AssemblerErrorType error)
 AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assembler* assembler_pointer)
 {
     assert(assembler_pointer);
-// FIXME Делай везде одинаково с этими стрелочками
     assert(assembler_pointer->binary_file);
 
-    char command_name[MAX_COMMAND_LENGTH] = {0};
+    char command_name[kMaxCommandLength] = {0};
     int argument = 0;
     int binary_index = 0;
     int commands_processed = 0;
@@ -61,16 +62,13 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
     while (sscanf(buffer_ptr, "%s", command_name) == 1)
     {
         buffer_ptr += strlen(command_name);
-        // FIXME - isspace
-        while (*buffer_ptr == ' ' || *buffer_ptr == '\n' || (*buffer_ptr == '\r') || *buffer_ptr == '\t')
+
+        while (isspace(*buffer_ptr))
             buffer_ptr++;
 
         operation_code = GetOpCode(command_name);
         if (operation_code == OP_ERR)
-        {
-        // FIXME - вынести принтф в мэйн и сделать функцию, которая получает код ошибки и возвращает строку с сообщением об ошибке
             return ASM_ERROR_UNKNOWN_COMMAND;
-        }
 
         assembler_pointer->binary_buffer[binary_index++] = operation_code; //записываем коды операций в бинарный буфер
 
@@ -126,11 +124,12 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
                 assembler_pointer->binary_buffer[binary_index++] = (int) reg;
                 buffer_ptr += strlen(register_name);
 
-                while (*buffer_ptr == ' ' || *buffer_ptr == '\n' || *buffer_ptr == '\r' || *buffer_ptr == '\t')
+                while (isspace(*buffer_ptr))
                     buffer_ptr++;
                 break;
             }
 
+            case OP_ERR:
             default:
                 return ASM_ERROR_UNKNOWN_COMMAND;
         }
@@ -140,15 +139,11 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
         if (operation_code == OP_HLT)
             break;
     }
-    // В функцию вынеси и вызови в мейне
-    fwrite(assembler_pointer->binary_buffer, sizeof(int), binary_index, assembler_pointer->binary_file); //высираем бинарный буфер в бинарный файл
+    fwrite(assembler_pointer->binary_buffer, sizeof(int), binary_index, assembler_pointer->binary_file);
 
     printf("Processed %d commands\n", commands_processed);
     return ASM_ERROR_NO;
 }
-
-
-
 
 AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename)
 {
@@ -165,7 +160,7 @@ AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, con
         return ASM_ERROR_READING_FILE;
     }
 
-    assembler_pointer->instructions_buffer = (char*)calloc(file_size + 1, sizeof(char));
+    assembler_pointer->instructions_buffer = (char*)calloc(file_size + 1, sizeof(char)); //+1, чтобы \0 поместился
     if (!assembler_pointer->instructions_buffer)
     {
         fclose(instruction_file);
@@ -187,7 +182,7 @@ AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, con
     return ASM_ERROR_NO;
 }
 
-AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input_filename, const char* output_filename, size_t starting_capacity)
+AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input_filename, const char* output_filename)
 {
     assert(assembler_pointer);
     assert(input_filename);
@@ -207,15 +202,12 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
     }
 
     size_t max_possible_commands = strlen(assembler_pointer->instructions_buffer) / 2 + 1; //оценка
-    assembler_pointer->binary_buffer = (int*)calloc(max_possible_commands * 2, sizeof(int)); //АШЧЬУ ПОЧЕМУ *2
+    assembler_pointer->binary_buffer = (int*)calloc(max_possible_commands, sizeof(int)); //АШЧЬУ ПОЧЕМУ *2
     if (!assembler_pointer->binary_buffer)
     {
         free(assembler_pointer->instructions_buffer);
         assembler_pointer->instructions_buffer = NULL;
         fclose(instruction_file);
-        // fclose(assembler_pointer->binary_file); у меня в деструкторе же это делается
-        // assembler_pointer->binary_file = NULL;
-
         return ASM_ERROR_ALLOCATION_FAILED;
     }
 
@@ -262,7 +254,6 @@ void AssemblerDtor(Assembler* assembler_pointer)
 
 FILE* GetInputFile(const char* instruction_filename)
 {
-    // FILE* instruction_file = fopen(instruction_filename, "r");
     FILE* instruction_file = fopen("../my_text_instructions.txt", "r"); //FIXME DEBUG
     if (instruction_file == NULL)
     {

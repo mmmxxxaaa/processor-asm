@@ -4,9 +4,8 @@
 #include <stdio.h>
 #include "asm_error_types.h"
 
-#define MAX_COMMAND_LENGTH 10 //FIXME в константу
-
-const int kNRegisters = 8; //FIXME у меня эта константа и в ассемблере, и в процессоре объявляется (2 раза итого)
+const int kMaxCommandLength = 10;
+const int kNRegisters = 8;
 
 typedef enum {
     OP_ERR    = -1,
@@ -50,7 +49,7 @@ const char* GetAsmErrorString(AssemblerErrorType error);
 
 AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assembler* assembler_pointer);
 AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename);
-AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input_filename, const char* output_filename, size_t starting_capacity);
+AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input_filename, const char* output_filename);
 void AssemblerDtor(Assembler* assembler_pointer);
 
 FILE* GetInputFile(const char* instruction_filename);

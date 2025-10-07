@@ -7,7 +7,6 @@
 #include "my_assembler.h"
 #include "proc_error_types.h"
 
-static const int kStartingCapacity = 10;
 static const int kStartingProcessorCapacity = 100;
 
 const char* GetProcErrorString(ProcessorErrorType error)
@@ -28,7 +27,7 @@ ProcessorErrorType ExecuteBinary(const char* binary_filename)
 {
     assert(binary_filename != NULL);
 
-    Processor proc_struct = {}; //FIXME скорее всего тут не должно быть деструкторов, они должны быть в мейне
+    Processor proc_struct = {}; //FIXME структура процессора должна приходить из мейна?
     ProcessorErrorType ctor_result = ProcessorCtor(&proc_struct, kStartingProcessorCapacity);
     if (ctor_result != PROC_ERROR_NO)
         return ctor_result;
@@ -39,7 +38,7 @@ ProcessorErrorType ExecuteBinary(const char* binary_filename)
         ProcessorDtor(&proc_struct); //FIXME скорее всего тут не должно быть деструкторов, они должны быть в мейне
         return error;
     }
-//FIXME напихать ПроцДАмпов
+
     error = ExecuteProcessor(&proc_struct);
     if (error != PROC_ERROR_NO)
     {
@@ -56,7 +55,7 @@ ProcessorErrorType ExecuteBinary(const char* binary_filename)
 ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 {
     assert(processor_pointer);
-    assert(processor_pointer->code_buffer); //FIXME ???
+    assert(processor_pointer->code_buffer);
 
     int op_code = OP_ERR;
     int argument = 0;
@@ -130,7 +129,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 break;
             }
 
-            case OP_PUSHR:
+            case OP_PUSHR: //засунуть в стек из регистра
             {
                 if (argument < 0 || argument >= kNRegisters)
                 {
@@ -143,7 +142,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 break;
             }
 
-            case OP_POPR:
+            case OP_POPR:  //достать из стека и поместить в регистр
             {
                 if (argument < 0 || argument >= kNRegisters)
                 {
@@ -164,7 +163,6 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
             case OP_OUT:
             {
-            // FIXME - проверку в поп
                 if (processor_pointer->stack.size == 0)
                 {
                     proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
@@ -172,11 +170,6 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 }
 
                 ElementType value = StackPop(&processor_pointer->stack);
-                if (value == kPoison) //FIXME очень залупная проверка, надо придумать, как нужно проверять (по сути у меня в попе это уже само всё обрабатывается, поэтому возвращаемое значение можно не проверять)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
                 printf("OUT -> %d\n", value);
                 break;
             }
@@ -193,7 +186,6 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
             ProcDump(processor_pointer, proc_error, "Processor Execution failed");
             return proc_error;
         }
-
     }
 
     return PROC_ERROR_NO;
@@ -238,8 +230,6 @@ ProcessorErrorType ReadBinaryFileToBuffer(Processor* processor_pointer, const ch
     return PROC_ERROR_NO;
 }
 
-
-
 ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_capacity)
 {
     assert(processor_pointer);
@@ -262,7 +252,7 @@ ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_c
 void ProcessorDtor(Processor* processor_pointer)
 {
     if (!processor_pointer)
-        return; //FIXME ????
+        return;
 
     if (processor_pointer->code_buffer)
         free(processor_pointer->code_buffer);
