@@ -37,8 +37,6 @@ ProcessorErrorType ExecuteBinary(const char* binary_filename, Processor* proc_st
     return PROC_ERROR_NO;
 }
 
-
-
 ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 {
     assert(processor_pointer);
@@ -55,10 +53,14 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
     int* buffer = processor_pointer->code_buffer; //MENTOR нужно ли это делать, чтобы не тратить время на бег по стрелочке
 
-    for (int i = 0; i < total_ints; i += 2)
+    while (processor_pointer->instruction_counter < binary_file_size)
     {
-        op_code = buffer[i];
-        argument = buffer[i+1];
+        int current_instruction_counter = processor_pointer->instruction_counter;
+        op_code = buffer[current_instruction_counter];
+        argument = buffer[current_instruction_counter + 1];
+
+        int should_increment_instruction_pointer = 1;
+
         switch (op_code)
         {
             case OP_PUSH:
@@ -108,6 +110,19 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 printf("Enter a number: ");
                 scanf("%d", &value);
                 stack_error = StackPush(&processor_pointer->stack, value);
+                break;
+            }
+
+            case OP_JMP:
+            {
+                if (argument < 0 || argument >= binary_file_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
+                {
+                    // proc_error = PROC_ERROR_INVALID_JUMP; //FIXME написать обработку ошибок
+                    break;
+                }
+                processor_pointer->instruction_counter = argument;
+                should_increment_instruction_pointer = 0;
+
                 break;
             }
 
@@ -168,11 +183,13 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
             ProcDump(processor_pointer, proc_error, "Processor Execution failed");
             return proc_error;
         }
+
+        if (should_increment_instruction_pointer)
+            processor_pointer->instruction_counter += 2;
     }
 
     return PROC_ERROR_NO;
 }
-
 
 ProcessorErrorType ReadBinaryFileToBuffer(Processor* processor_pointer, const char* binary_filename)
 {

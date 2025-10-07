@@ -19,6 +19,7 @@ typedef enum {
     OP_SQRT   =  7,
     OP_OUT    =  8,
     OP_IN     =  9,
+    OP_JMP    = 10,
     OP_PUSHR  = 33,
     OP_POPR   = 34,
 } OpCodes;

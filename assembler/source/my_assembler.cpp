@@ -26,6 +26,7 @@ OpCodes GetOpCode(const char* command)
     COMPARE_COMMAND(command, OUT);
     COMPARE_COMMAND(command, PUSHR);
     COMPARE_COMMAND(command, POPR);
+    COMPARE_COMMAND(command, JMP);
 
     fprintf(stderr, "Error: Unknown command '%s'\n", command);
     return OP_ERR;
@@ -104,6 +105,19 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
                 assembler_pointer->binary_buffer[binary_index++] = 0;
                 break;
 
+            case OP_JMP:
+                if (sscanf(buffer_ptr, "%d", &argument) == 1)
+                {
+                    assembler_pointer->binary_buffer[binary_index++] = argument; // записываем аргумент в бинарный буфер
+
+            // FIXME - Вместо сдвига на размер числа strchr('\n')
+                    char arg_buffer[32] = {0}; //создаем временный буфер для строкового представления числа
+                    sprintf(arg_buffer, "%d", argument); //преобразуем число обратно в строку с помощью sprintf
+                    buffer_ptr += strlen(arg_buffer); //сдвигаем указатель в буфере инструкций на длину этой строки
+                    while ((*buffer_ptr == ' ') || (*buffer_ptr == '\n') || (*buffer_ptr == '\r') || (*buffer_ptr == '\t'))// Пропускаем пробелы после аргумента
+                        buffer_ptr++;
+                }
+                break;
             case OP_POPR:
             case OP_PUSHR:
             {
