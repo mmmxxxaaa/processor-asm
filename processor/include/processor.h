@@ -32,4 +32,11 @@ void ProcDump(const Processor* proc, int errors, const char* msg);
 
 long int GetSizeOfBinaryFile(FILE* binary_file);
 
+void ProcessOpJB (Processor* processor_pointer, int argument, int* should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+void ProcessOpJBE(Processor* processor_pointer, int argument, int* should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+void ProcessOpJA (Processor* processor_pointer, int argument, int* should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+void ProcessOpJAE(Processor* processor_pointer, int argument, int* should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+void ProcessOpJE (Processor* processor_pointer, int argument, int* should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+void ProcessOpJNE(Processor* processor_pointer, int argument, int* should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+
 #endif // PROCESSOR_H_
