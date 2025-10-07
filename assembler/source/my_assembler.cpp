@@ -24,9 +24,17 @@ OpCodes GetOpCode(const char* command)
     COMPARE_COMMAND(command, SQRT);
     COMPARE_COMMAND(command, IN);
     COMPARE_COMMAND(command, OUT);
+
+    COMPARE_COMMAND(command, JMP);
+    COMPARE_COMMAND(command, JB);
+    COMPARE_COMMAND(command, JBE);
+    COMPARE_COMMAND(command, JA);
+    COMPARE_COMMAND(command, JAE);
+    COMPARE_COMMAND(command, JE);
+    COMPARE_COMMAND(command, JNE);
+
     COMPARE_COMMAND(command, PUSHR);
     COMPARE_COMMAND(command, POPR);
-    COMPARE_COMMAND(command, JMP);
 
     fprintf(stderr, "Error: Unknown command '%s'\n", command);
     return OP_ERR;
@@ -106,6 +114,12 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
                 break;
 
             case OP_JMP:
+            case OP_JB:
+            case OP_JBE:
+            case OP_JA:
+            case OP_JAE:
+            case OP_JE:
+            case OP_JNE:
                 if (sscanf(buffer_ptr, "%d", &argument) == 1)
                 {
                     assembler_pointer->binary_buffer[binary_index++] = argument; // записываем аргумент в бинарный буфер
@@ -118,6 +132,7 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
                         buffer_ptr++;
                 }
                 break;
+
             case OP_POPR:
             case OP_PUSHR:
             {

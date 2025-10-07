@@ -61,7 +61,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
         int should_increment_instruction_pointer = 1;
 
-        switch (op_code)
+        switch (op_code) //FIXME раскидать все кейсы по функциям, их уже слишком много
         {
             case OP_PUSH:
             {
@@ -123,6 +123,30 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 processor_pointer->instruction_counter = argument;
                 should_increment_instruction_pointer = 0;
 
+                break;
+            }
+
+            case OP_JB:
+            {
+                if (processor_pointer->stack.size < 2)
+                {
+                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
+                    break;
+                }
+
+                ElementType b = StackPop(&processor_pointer->stack); //FIXME приходится делать такой странный порядок
+                ElementType a = StackPop(&processor_pointer->stack);
+
+                if (a < b)
+                {
+                    if (argument < 0 || argument >= binary_file_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
+                    {
+                        // proc_error = PROC_ERROR_INVALID_JUMP; //FIXME написать обработку ошибок
+                        break;
+                    }
+                    processor_pointer->instruction_counter = argument;
+                    should_increment_instruction_pointer = 0;
+                }
                 break;
             }
 
