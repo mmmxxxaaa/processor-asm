@@ -9,6 +9,8 @@
 
 #include "my_assembler.h"
 
+const int kStartingProcessorCapacity = 100;
+
 typedef struct {
     Stack stack;
     int registers[kNRegisters];
@@ -19,6 +21,8 @@ typedef struct {
 
 const char* GetProcErrorString(ProcessorErrorType error);
 ProcessorErrorType ReadBinaryFileToBuffer(Processor* processor_pointer, const char* binary_filename);
+
+ProcessorErrorType ExecuteBinary(const char* filename, Processor* proc_struct_pointer);
 ProcessorErrorType ExecuteProcessor(Processor* processor_pointer);
 
 
@@ -27,6 +31,5 @@ void ProcessorDtor(Processor* processor_pointer);
 void ProcDump(const Processor* proc, int errors, const char* msg);
 
 long int GetSizeOfBinaryFile(FILE* binary_file);
-ProcessorErrorType ExecuteBinary(const char* filename);
 
 #endif // PROCESSOR_H_

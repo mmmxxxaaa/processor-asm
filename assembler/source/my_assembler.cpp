@@ -202,7 +202,7 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
     }
 
     size_t max_possible_commands = strlen(assembler_pointer->instructions_buffer) / 2 + 1; //оценка
-    assembler_pointer->binary_buffer = (int*)calloc(max_possible_commands, sizeof(int)); //АШЧЬУ ПОЧЕМУ *2
+    assembler_pointer->binary_buffer = (int*)calloc(max_possible_commands, sizeof(int));
     if (!assembler_pointer->binary_buffer)
     {
         free(assembler_pointer->instructions_buffer);
@@ -254,7 +254,7 @@ void AssemblerDtor(Assembler* assembler_pointer)
 
 FILE* GetInputFile(const char* instruction_filename)
 {
-    FILE* instruction_file = fopen("../my_text_instructions.txt", "r"); //FIXME DEBUG
+    FILE* instruction_file = fopen("../my_text_instructions.txt", "r");
     if (instruction_file == NULL)
     {
         printf("Error: Cannot open input file %s\n", instruction_filename);

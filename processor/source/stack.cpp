@@ -159,7 +159,7 @@ void StackDump(const Stack* stk, int errors, const char* msg)
     size_t stack_capacity = stk->capacity;
 
     printf("stack [%p] %s (", stk, msg);
-    ErrorsParse(errors); //FIXME в процессоре добавить промежуточный обработчик ошибок, чтобы они не сразу печатались, а превращались из енамчика в строку
+    ErrorsParse(errors);
 
 #if defined(DEBUG_CANARY) || defined(DEBUG_HASH)
     printf("Err%d) from %s at %s %d\n", errors, stk->debug.function_name, stk->debug.file_name, stk->debug.line);
@@ -306,13 +306,3 @@ void PrintElement(ElementType element)
 {
     printf("%d", element);
 }
-
-//ДЕЛО СДЕЛАНО ПОБИТОВЫЕ ОПЕРАЦИИ ВМЕСТО +=
-//написать мейн, показывающий различные ошибки
-//ДЕЛО СДЕЛАНО доделать условную компиляцию канареек
-//ДЕЛО СДЕЛАНО сделать хэши
-//поменяться кодом с Умаром
-
-
-//в начале проверяю hash из структуры с тем, который только что пересчитал
-//потом уже изменяю hash и помещаю его в структуру

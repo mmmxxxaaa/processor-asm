@@ -42,7 +42,6 @@ typedef struct {
     char* instructions_buffer; // буффер с текстом из входного файла, вводится один раз
     int*  binary_buffer;
 } Assembler;
-//ДЕЛО СДЕЛАНО написать конструктор и деструктор этой структуры асма
 
 OpCodes GetOpCode(const char* command);
 const char* GetAsmErrorString(AssemblerErrorType error);

@@ -7,8 +7,6 @@
 #include "my_assembler.h"
 #include "proc_error_types.h"
 
-static const int kStartingProcessorCapacity = 100;
-
 const char* GetProcErrorString(ProcessorErrorType error)
 {
     switch (error) {
@@ -19,34 +17,23 @@ const char* GetProcErrorString(ProcessorErrorType error)
         case PROC_ERROR_UNKNOWN_OPCODE: return "Unknown opcode";
         case PROC_ERROR_STACK_OPERATION_FAILED: return "Stack operation failed";
         case PROC_ERROR_INVALID_STATE: return "Invalid processor state";
+        case PROC_ERROR_INVALID_REGISTER: return "Invalid register";
         default: return "Unknown error";
     }
 }
 
-ProcessorErrorType ExecuteBinary(const char* binary_filename)
+ProcessorErrorType ExecuteBinary(const char* binary_filename, Processor* proc_struct_pointer)
 {
     assert(binary_filename != NULL);
 
-    Processor proc_struct = {}; //FIXME структура процессора должна приходить из мейна?
-    ProcessorErrorType ctor_result = ProcessorCtor(&proc_struct, kStartingProcessorCapacity);
-    if (ctor_result != PROC_ERROR_NO)
-        return ctor_result;
-
-    ProcessorErrorType error = ReadBinaryFileToBuffer(&proc_struct, binary_filename);
+    ProcessorErrorType error = ReadBinaryFileToBuffer(proc_struct_pointer, binary_filename);
     if (error != PROC_ERROR_NO)
-    {
-        ProcessorDtor(&proc_struct); //FIXME скорее всего тут не должно быть деструкторов, они должны быть в мейне
         return error;
-    }
 
-    error = ExecuteProcessor(&proc_struct);
+    error = ExecuteProcessor(proc_struct_pointer);
     if (error != PROC_ERROR_NO)
-    {
-        ProcessorDtor(&proc_struct); //FIXME скорее всего тут не должно быть деструкторов, они должны быть в мейне
         return error;
-    }
 
-    ProcessorDtor(&proc_struct);
     return PROC_ERROR_NO;
 }
 
@@ -82,11 +69,6 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
             case OP_POP:
             {
                 ElementType popped = StackPop(&processor_pointer->stack);
-            // FIXME - чо за хуйня нужна ошибка нормальная, а то вдруг в стеке лежит значение буквально пойзона
-                if (popped == kPoison)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                }
                 break;
             }
 
@@ -235,11 +217,11 @@ ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_c
     assert(processor_pointer);
     assert(starting_capacity > 0);
 
-    int stack_ctor_result = StackCtor(&(processor_pointer -> stack), starting_capacity); //FIXME не int, а enum, везде поправить
+    int stack_ctor_result = StackCtor(&(processor_pointer -> stack), starting_capacity);
     if (stack_ctor_result != ERROR_NO)
         return PROC_ERROR_STACK_OPERATION_FAILED;
 
-    for (int i = 0; i < 8; i++) //FIXME это вроде бы не нужно
+    for (int i = 0; i < 8; i++)
         processor_pointer->registers[i] = 0;
 
     processor_pointer->instruction_counter = 0;
