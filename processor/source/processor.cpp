@@ -19,6 +19,7 @@ const char* GetProcErrorString(ProcessorErrorType error)
         case PROC_ERROR_STACK_OPERATION_FAILED: return "Stack operation failed";
         case PROC_ERROR_INVALID_STATE: return "Invalid processor state";
         case PROC_ERROR_INVALID_REGISTER: return "Invalid register";
+        case PROC_ERROR_INVALID_JUMP: return "Invalid jump";
         default: return "Unknown error";
     }
 }
@@ -27,6 +28,7 @@ ProcessorErrorType ExecuteBinary(const char* binary_filename, Processor* proc_st
 {
     assert(binary_filename != NULL);
 
+//FIXME - в конструктор вынеси
     ProcessorErrorType error = ReadBinaryFileToBuffer(proc_struct_pointer, binary_filename);
     if (error != PROC_ERROR_NO)
         return error;
@@ -37,7 +39,7 @@ ProcessorErrorType ExecuteBinary(const char* binary_filename, Processor* proc_st
 
     return PROC_ERROR_NO;
 }
-//
+
 ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 {
     assert(processor_pointer);
@@ -51,17 +53,15 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
     int total_ints = processor_pointer->code_buffer_size - processor_pointer->code_buffer_size % 2; // чтоб не перескочить в цикле
 
-    int* buffer = processor_pointer->code_buffer; //MENTOR нужно ли это делать, чтобы не тратить время на бег по стрелочке
-
     while (processor_pointer->instruction_counter < processor_pointer->code_buffer_size)
     {
         int current_instruction_counter = processor_pointer->instruction_counter;
-        op_code = buffer[current_instruction_counter];
-        argument = buffer[current_instruction_counter + 1];
+        op_code = processor_pointer->code_buffer[current_instruction_counter];
+        argument = processor_pointer->code_buffer[current_instruction_counter + 1];
 
         int should_increment_instruction_pointer = 1;
 
-        switch (op_code) //FIXME раскидать все кейсы по функциям, их уже слишком много
+        switch (op_code)
         {
             case OP_PUSH:
             {
@@ -117,7 +117,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
             {
                 if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
                 {
-                    // proc_error = PROC_ERROR_INVALID_JUMP; //FIXME написать обработку ошибок
+                    proc_error = PROC_ERROR_INVALID_JUMP;
                     break;
                 }
                 processor_pointer->instruction_counter = argument;
@@ -125,7 +125,9 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
                 break;
             }
-
+//FIXME GitHub десктоп
+//FIXME готовиться к задачке
+//FIXME проверить условные джампы
             case OP_JB:
             {
                 if (processor_pointer->stack.size < 2)
@@ -134,7 +136,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
 
-                ProcessOpJB(processor_pointer, argument, &should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+                proc_error = ProcessOpJB(processor_pointer, argument, &should_increment_instruction_pointer);
                 break;
             }
 
@@ -145,8 +147,11 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
                     break;
                 }
-
-                ProcessOpJBE(processor_pointer, argument, &should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+//макрос который преобразутеся в switch case
+//в этот макрос я передаю JBE а он потом просто склеивает ProcessOp и JBE
+//точно так же сделать с OP_PUSH
+//+ тогда поменять названия у функций с StackAdd на StackADD
+                proc_error = ProcessOpJBE(processor_pointer, argument, &should_increment_instruction_pointer);
                 break;
             }
 
@@ -158,7 +163,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
 
-                ProcessOpJA(processor_pointer, argument, &should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+                proc_error = ProcessOpJA(processor_pointer, argument, &should_increment_instruction_pointer);
                 break;
             }
 
@@ -170,7 +175,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
 
-                ProcessOpJAE(processor_pointer, argument, &should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+                proc_error = ProcessOpJAE(processor_pointer, argument, &should_increment_instruction_pointer);
                 break;
             }
 
@@ -182,7 +187,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
 
-                ProcessOpJE(processor_pointer, argument, &should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+                proc_error = ProcessOpJE(processor_pointer, argument, &should_increment_instruction_pointer);
                 break;
             }
 
@@ -194,7 +199,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
 
-                ProcessOpJNE(processor_pointer, argument, &should_increment_instruction_pointer); //FIXME возвращать тип процессорной ошибки
+                proc_error = ProcessOpJNE(processor_pointer, argument, &should_increment_instruction_pointer);
                 break;
             }
 
@@ -272,7 +277,7 @@ ProcessorErrorType ReadBinaryFileToBuffer(Processor* processor_pointer, const ch
     if (binary_file == NULL)
         return PROC_ERROR_CANNOT_OPEN_BINARY_FILE;
 
-    long int processor_pointer->code_buffer_size = GetSizeOfBinaryFile(binary_file);
+    processor_pointer->code_buffer_size = GetSizeOfBinaryFile(binary_file);
     if (processor_pointer->code_buffer_size <= 0)
     {
         fclose(binary_file);
@@ -370,119 +375,117 @@ long int GetSizeOfBinaryFile(FILE* binary_file)
     rewind(binary_file);
     return size;
 }
-//ХУЙНЯ
+
 //FIXME надо избавиться от этого копипаста
-void ProcessOpJB(Processor* processor_pointer, int argument, int* should_increment_instruction_pointer) //FIXME возвращать тип процессорной ошибки
+ProcessorErrorType ProcessOpJB(Processor* processor_pointer, int argument,
+                               int* should_increment_instruction_pointer)
 {
-    ElementType b = StackPop(&processor_pointer->stack); //FIXME приходится делать такой странный порядок
+    ElementType b = StackPop(&processor_pointer->stack);
     ElementType a = StackPop(&processor_pointer->stack);
 
     if (a < b)
     {
         if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
         {
-            // return = PROC_ERROR_INVALID_JUMP; //FIXME написать обработку ошибок
-
+            return PROC_ERROR_INVALID_JUMP;
         }
         processor_pointer->instruction_counter = argument;
         *should_increment_instruction_pointer = 0;
     }
-// return PROC_ERROR_NO;
+    return PROC_ERROR_NO;
 }
-
-
-
-void ProcessOpJBE(Processor* processor_pointer, int argument, int* should_increment_instruction_pointer) //FIXME возвращать тип процессорной ошибки
+//FIXME тут тоже придумать макрос, который будет принимать знак проверки (<=) и JBE
+ProcessorErrorType ProcessOpJBE(Processor* processor_pointer, int argument,
+                                int* should_increment_instruction_pointer)
 {
-    ElementType b = StackPop(&processor_pointer->stack); //FIXME приходится делать такой странный порядок
+    ElementType b = StackPop(&processor_pointer->stack);
     ElementType a = StackPop(&processor_pointer->stack);
 
     if (a <= b)
     {
         if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
         {
-            // return = PROC_ERROR_INVALID_JUMP; //FIXME написать обработку ошибок
-
+            return PROC_ERROR_INVALID_JUMP;
         }
         processor_pointer->instruction_counter = argument;
         *should_increment_instruction_pointer = 0;
     }
-// return PROC_ERROR_NO;
+    return PROC_ERROR_NO;
 }
 
 
-void ProcessOpJA(Processor* processor_pointer, int argument,
-                 int* should_increment_instruction_pointer) //FIXME возвращать тип процессорной ошибки
+ProcessorErrorType ProcessOpJA(Processor* processor_pointer, int argument,
+                               int* should_increment_instruction_pointer)
 {
-    ElementType b = StackPop(&processor_pointer->stack); //FIXME приходится делать такой странный порядок
+    ElementType b = StackPop(&processor_pointer->stack);
     ElementType a = StackPop(&processor_pointer->stack);
 
     if (a > b)
     {
         if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
         {
-            // return = PROC_ERROR_INVALID_JUMP; //FIXME написать обработку ошибок
-
+            return PROC_ERROR_INVALID_JUMP;
         }
         processor_pointer->instruction_counter = argument;
         *should_increment_instruction_pointer = 0;
     }
-// return PROC_ERROR_NO;
+    return PROC_ERROR_NO;
 }
 
 
-void ProcessOpJAE(Processor* processor_pointer, int argument, int* should_increment_instruction_pointer) //FIXME возвращать тип процессорной ошибки
+ProcessorErrorType ProcessOpJAE(Processor* processor_pointer, int argument,
+                                int* should_increment_instruction_pointer)
 {
-    ElementType b = StackPop(&processor_pointer->stack); //FIXME приходится делать такой странный порядок
+    ElementType b = StackPop(&processor_pointer->stack);
     ElementType a = StackPop(&processor_pointer->stack);
 
     if (a >= b)
     {
         if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
         {
-            // return = PROC_ERROR_INVALID_JUMP; //FIXME написать обработку ошибок
-
+            return PROC_ERROR_INVALID_JUMP;
         }
         processor_pointer->instruction_counter = argument;
         *should_increment_instruction_pointer = 0;
     }
-// return PROC_ERROR_NO;
+    return PROC_ERROR_NO;
 }
 
 
-void ProcessOpJE(Processor* processor_pointer, int argument, int* should_increment_instruction_pointer) //FIXME возвращать тип процессорной ошибки
+ProcessorErrorType ProcessOpJE(Processor* processor_pointer, int argument,
+                               int* should_increment_instruction_pointer)
 {
-    ElementType b = StackPop(&processor_pointer->stack); //FIXME приходится делать такой странный порядок
+    ElementType b = StackPop(&processor_pointer->stack);
     ElementType a = StackPop(&processor_pointer->stack);
 
     if (a == b)
     {
         if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
         {
-            // return = PROC_ERROR_INVALID_JUMP; //FIXME написать обработку ошибок
-
+            return PROC_ERROR_INVALID_JUMP;
         }
         processor_pointer->instruction_counter = argument;
         *should_increment_instruction_pointer = 0;
     }
-// return PROC_ERROR_NO;
+    return PROC_ERROR_NO;
 }
 
 
-void ProcessOpJNE(Processor* processor_pointer, int argument, int* should_increment_instruction_pointer) //FIXME возвращать тип процессорной ошибки
+ProcessorErrorType ProcessOpJNE(Processor* processor_pointer, int argument,
+                                int* should_increment_instruction_pointer)
 {
-    ElementType b = StackPop(&processor_pointer->stack); //FIXME приходится делать такой странный порядок
+    ElementType b = StackPop(&processor_pointer->stack);
     ElementType a = StackPop(&processor_pointer->stack);
 
     if (a != b)
     {
         if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
         {
-            // return = PROC_ERROR_INVALID_JUMP; //FIXME написать обработку ошибок
+            return PROC_ERROR_INVALID_JUMP;
 
         }
         processor_pointer->instruction_counter = argument;
         *should_increment_instruction_pointer = 0;
     }
-// return PROC_ERROR_NO;
+    return PROC_ERROR_NO;
 }

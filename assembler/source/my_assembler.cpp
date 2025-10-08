@@ -76,7 +76,7 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
             buffer_ptr++;
 
         operation_code = GetOpCode(command_name);
-        if (operation_code == OP_ERR)
+        if (operation_code == OP_ERR) //в кейс
             return ASM_ERROR_UNKNOWN_COMMAND;
 
         assembler_pointer->binary_buffer[binary_index++] = operation_code; //записываем коды операций в бинарный буфер
@@ -175,7 +175,7 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
 }
 
 AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename)
-{
+{//assert
     FILE* instruction_file = GetInputFile(input_filename);
     if (!instruction_file)
     {
@@ -218,9 +218,12 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
     assert(output_filename);
 
     assembler_pointer -> binary_file = GetOutputFile(output_filename);
-    FILE* instruction_file = GetInputFile(input_filename);
     if (!assembler_pointer->binary_file)
         return ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE;
+
+    FILE* instruction_file = GetInputFile(input_filename); //ДЕЛО СДЕЛАНО ПОПРАВИЛ
+    if (!instruction_file)
+        return ASM_ERROR_CANNOT_OPEN_INPUT_FILE;
 
     AssemblerErrorType error = ReadInstructionFileToBuffer(assembler_pointer, input_filename);
     if (error != ASM_ERROR_NO)
@@ -281,6 +284,7 @@ void AssemblerDtor(Assembler* assembler_pointer)
     assembler_pointer->binary_file = NULL;
 }
 
+//ХУЙНЯ ПЕРЕДЕЛЫВАЙ
 FILE* GetInputFile(const char* instruction_filename)
 {
     FILE* instruction_file = fopen("../my_text_instructions.txt", "r");
