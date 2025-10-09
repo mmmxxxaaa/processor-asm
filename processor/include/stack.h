@@ -47,8 +47,8 @@ void StackDtor(Stack* stack_pointer);
 int StackVerification(Stack* stack);
 int ErrorsParse(int errors);
 
-int StackPush(Stack* stk, ElementType value);
-ElementType StackPop(Stack* stk);
+int StackPUSH(Stack* stk, ElementType value);
+ElementType StackPOP(Stack* stk);
 void StackDump(const Stack* stk, int errors, const char* msg);
 int ResizeBuffer(Stack* stk);
 

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 
-int StackAdd(Stack* stack)
+int StackADD(Stack* stack)
 {
     int errors = StackVerification(stack);
     if (errors != 0)
@@ -12,18 +12,18 @@ int StackAdd(Stack* stack)
         return errors;
     }
 
-    ElementType number1 = StackPop(stack);
-    ElementType number2 = StackPop(stack);
+    ElementType number1 = StackPOP(stack);
+    ElementType number2 = StackPOP(stack);
 
     ElementType add = number1 + number2;
-    StackPush(stack, add);
+    StackPUSH(stack, add);
 
     errors = StackVerification(stack);
 
     return ERROR_NO;
 }
 
-int StackSub(Stack* stack)
+int StackSUB(Stack* stack)
 {
     int errors = StackVerification(stack);
     if (errors != 0)
@@ -32,17 +32,17 @@ int StackSub(Stack* stack)
         return errors;
     }
 
-    ElementType number1 = StackPop(stack);
-    ElementType number2 = StackPop(stack);
+    ElementType number1 = StackPOP(stack);
+    ElementType number2 = StackPOP(stack);
 
     ElementType sub = number2 - number1;
-    StackPush(stack, sub);
+    StackPUSH(stack, sub);
 
     errors = StackVerification(stack);
 
     return ERROR_NO;
 }
-int StackMul(Stack* stack)
+int StackMUL(Stack* stack)
 {
     int errors = StackVerification(stack);
     if (errors != 0)
@@ -51,17 +51,17 @@ int StackMul(Stack* stack)
         return errors;
     }
 
-    ElementType number1 = StackPop(stack);
-    ElementType number2 = StackPop(stack);
+    ElementType number1 = StackPOP(stack);
+    ElementType number2 = StackPOP(stack);
 
     ElementType mul = number1 * number2;
-    StackPush(stack, mul);
+    StackPUSH(stack, mul);
 
     errors = StackVerification(stack);
 
     return ERROR_NO;
 }
-int StackDiv(Stack* stack)
+int StackDIV(Stack* stack)
 {
     int errors = StackVerification(stack);
     if (errors != 0)
@@ -70,25 +70,25 @@ int StackDiv(Stack* stack)
         return errors;
     }
 
-    ElementType number1 = StackPop(stack);
-    ElementType number2 = StackPop(stack);
+    ElementType number1 = StackPOP(stack);
+    ElementType number2 = StackPOP(stack);
 
     if (number1 == 0)
     {
-        StackPush(stack, number2);
-        StackPush(stack, number1);
+        StackPUSH(stack, number2);
+        StackPUSH(stack, number1);
         fprintf(stderr, "Division by zero error\n");
         return ERR_DIV_BY_0;
     }
     ElementType div = number2 / number1;
-    StackPush(stack, div);
+    StackPUSH(stack, div);
 
     errors = StackVerification(stack);
 
     return ERROR_NO;
 }
 
-int StackSqrt(Stack* stack)
+int StackSQRT(Stack* stack)
 {
     int errors = StackVerification(stack);
     if (errors != 0)
@@ -97,9 +97,9 @@ int StackSqrt(Stack* stack)
         return errors;
     }
 
-    ElementType number = StackPop(stack);
+    ElementType number = StackPOP(stack);
     number = (ElementType)sqrt(number);
-    StackPush(stack, number);
+    StackPUSH(stack, number);
 
     errors = StackVerification(stack);
 

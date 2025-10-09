@@ -86,7 +86,14 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
         switch(operation_code)
         {
             case OP_PUSH:
-                if (sscanf(buffer_ptr, "%d", &argument) == 1)
+            case OP_JMP:
+            case OP_JB:
+            case OP_JBE:
+            case OP_JA:
+            case OP_JAE:
+            case OP_JE:
+            case OP_JNE:
+                if (sscanf(buffer_ptr, "%d", &argument) == 1) //фигурные скобки нужны, чтобы создать переменную внутри кейса
                 {
                     assembler_pointer->binary_buffer[binary_index++] = argument; // записываем аргумент в бинарный буфер
 
@@ -113,26 +120,6 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
             case OP_OUT:
             case OP_IN:
                 assembler_pointer->binary_buffer[binary_index++] = 0;
-                break;
-
-            case OP_JMP:
-            case OP_JB:
-            case OP_JBE:
-            case OP_JA:
-            case OP_JAE:
-            case OP_JE:
-            case OP_JNE:
-                if (sscanf(buffer_ptr, "%d", &argument) == 1)
-                {
-                    assembler_pointer->binary_buffer[binary_index++] = argument; // записываем аргумент в бинарный буфер
-
-            // FIXME - Вместо сдвига на размер числа strchr('\n')
-                    char arg_buffer[32] = {0}; //создаем временный буфер для строкового представления числа
-                    sprintf(arg_buffer, "%d", argument); //преобразуем число обратно в строку с помощью sprintf
-                    buffer_ptr += strlen(arg_buffer); //сдвигаем указатель в буфере инструкций на длину этой строки
-                    while ((*buffer_ptr == ' ') || (*buffer_ptr == '\n') || (*buffer_ptr == '\r') || (*buffer_ptr == '\t'))// Пропускаем пробелы после аргумента
-                        buffer_ptr++;
-                }
                 break;
 
             case OP_POPR:

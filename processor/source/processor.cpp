@@ -26,18 +26,19 @@ const char* GetProcErrorString(ProcessorErrorType error)
     }
 }
 
-ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
-{
+ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сигнатуру + версию добавить
+{                                                                 //FIXME протестить джампы
     assert(processor_pointer);
     assert(processor_pointer->code_buffer);
+
+    if (processor_pointer->code_buffer_size % 2 != 0) //у каждой инструкции должен быть аргумент
+        return PROC_ERROR_INVALID_STATE;
 
     int op_code = OP_ERR;
     int argument = 0;
 
     ProcessorErrorType proc_error = PROC_ERROR_NO;
     int stack_error = 0;
-
-    int total_ints = processor_pointer->code_buffer_size - processor_pointer->code_buffer_size % 2; // чтоб не перескочить в цикле
 
     while (processor_pointer->instruction_counter < processor_pointer->code_buffer_size)
     {
@@ -49,53 +50,21 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
         switch (op_code)
         {
-            case OP_PUSH:
-            {
-                stack_error = StackPush(&processor_pointer->stack, argument);
-                break;
-            }
-            case OP_POP:
-            {
-                StackPop(&processor_pointer->stack);
-                break;
-            }
+            PROCESS_WITH_ARG_STACK_OP(PUSH, argument)
 
-            case OP_ADD:
-            {
-                stack_error = StackAdd(&processor_pointer->stack);
-                break;
-            }
-
-            case OP_SUB:
-            {
-                stack_error = StackSub(&processor_pointer->stack);
-                break;
-            }
-
-            case OP_MUL:
-            {
-                stack_error = StackMul(&processor_pointer->stack);
-                break;
-            }
-
-            case OP_DIV:
-            {
-                stack_error = StackDiv(&processor_pointer->stack);
-                break;
-            }
-
-            case OP_SQRT:
-            {
-                stack_error = StackSqrt(&processor_pointer->stack);
-                break;
-            }
+            PROCESS_NO_ARG_STACK_OP(POP)
+            PROCESS_NO_ARG_STACK_OP(ADD)
+            PROCESS_NO_ARG_STACK_OP(SUB)
+            PROCESS_NO_ARG_STACK_OP(MUL)
+            PROCESS_NO_ARG_STACK_OP(DIV)
+            PROCESS_NO_ARG_STACK_OP(SQRT)
 
             case OP_IN:
             {
                 int value = 0;
                 printf("Enter a number: ");
                 scanf("%d", &value);
-                stack_error = StackPush(&processor_pointer->stack, value);
+                stack_error = StackPUSH(&processor_pointer->stack, value);
                 break;
             }
 
@@ -112,77 +81,12 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 break;
             }
 
-            case OP_JB:
-            {
-                if (processor_pointer->stack.size < 2)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                proc_error = ProcessOpJB(processor_pointer, argument, &should_increment_instruction_pointer);
-                break;
-            }
-
-            case OP_JBE:
-            {
-                if (processor_pointer->stack.size < 2)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                proc_error = ProcessOpJBE(processor_pointer, argument, &should_increment_instruction_pointer);
-                break;
-            }
-
-            case OP_JA:
-            {
-                if (processor_pointer->stack.size < 2)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                proc_error = ProcessOpJA(processor_pointer, argument, &should_increment_instruction_pointer);
-                break;
-            }
-
-            case OP_JAE:
-            {
-                if (processor_pointer->stack.size < 2)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                proc_error = ProcessOpJAE(processor_pointer, argument, &should_increment_instruction_pointer);
-                break;
-            }
-
-            case OP_JE:
-            {
-                if (processor_pointer->stack.size < 2)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                proc_error = ProcessOpJE(processor_pointer, argument, &should_increment_instruction_pointer);
-                break;
-            }
-
-            case OP_JNE:
-            {
-                if (processor_pointer->stack.size < 2)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                proc_error = ProcessOpJNE(processor_pointer, argument, &should_increment_instruction_pointer);
-                break;
-            }
+            PROCESS_JUMP_OP(JB)
+            PROCESS_JUMP_OP(JBE)
+            PROCESS_JUMP_OP(JA)
+            PROCESS_JUMP_OP(JAE)
+            PROCESS_JUMP_OP(JE)
+            PROCESS_JUMP_OP(JNE)
 
             case OP_PUSHR: //засунуть в стек из регистра
             {
@@ -192,7 +96,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
                 ElementType dusha_registra = processor_pointer->registers[argument];
-                stack_error = StackPush(&processor_pointer->stack, dusha_registra);
+                stack_error = StackPUSH(&processor_pointer->stack, dusha_registra);
 
                 break;
             }
@@ -211,7 +115,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
 
-                ElementType value = StackPop(&processor_pointer->stack);
+                ElementType value = StackPOP(&processor_pointer->stack);
                 processor_pointer->registers[argument] = value;
                 break;
             }
@@ -224,7 +128,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
 
-                ElementType value = StackPop(&processor_pointer->stack);
+                ElementType value = StackPOP(&processor_pointer->stack);
                 printf("OUT -> %d\n", value);
                 break;
             }
@@ -362,17 +266,17 @@ long int GetSizeOfBinaryFile(FILE* binary_file)
     return size;
 }
 
-DEFINE_JUMP_FUNC_GENERATION(JB,  <)
-DEFINE_JUMP_FUNC_GENERATION(JBE, <=)
-DEFINE_JUMP_FUNC_GENERATION(JA,  >)
-DEFINE_JUMP_FUNC_GENERATION(JAE, >=)
-DEFINE_JUMP_FUNC_GENERATION(JE,  ==)
-DEFINE_JUMP_FUNC_GENERATION(JNE, !=)
+BODY_JUMP_FUNC_GENERATION(JB,  <)
+BODY_JUMP_FUNC_GENERATION(JBE, <=)
+BODY_JUMP_FUNC_GENERATION(JA,  >)
+BODY_JUMP_FUNC_GENERATION(JAE, >=)
+BODY_JUMP_FUNC_GENERATION(JE,  ==)
+BODY_JUMP_FUNC_GENERATION(JNE, !=)
 
 
 //FIXME GitHub десктоп
 //FIXME готовиться к задачке
-//FIXME проверить условные джампы
+
 //макрос который преобразутеся в switch case
 //в этот макрос я передаю JBE а он потом просто склеивает ProcessOp и JBE
 //точно так же сделать с OP_PUSH

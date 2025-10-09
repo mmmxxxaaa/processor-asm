@@ -82,7 +82,7 @@ void StackDtor(Stack* stack_pointer)
 #endif //DEBUG_HASH
 }
 
-int StackPush(Stack* stk, ElementType value)
+int StackPUSH(Stack* stk, ElementType value)
 {
     int errors = StackVerification(stk); //ассерт не нужен, т.к. верификатор проверяет указатель
     if (errors != 0)
@@ -106,7 +106,7 @@ int StackPush(Stack* stk, ElementType value)
     return ERROR_NO;
 }
 
-ElementType StackPop(Stack* stk)
+ElementType StackPOP(Stack* stk)
 {
     int errors = StackVerification(stk);
     if (errors != 0)
@@ -150,7 +150,7 @@ void StackDump(const Stack* stk, int errors, const char* msg)
     }
 
     // левая канарейка находится по data[-1], а правая по data[capacity]
-#if defined(DEBUG_CANARY) //ХУЙНЯ ПЕРЕДЕЛЫВАЙ ТУТ НЕ БЫЛО УСЛОВНОЙ КОМПИЛЯЦИИ
+#if defined(DEBUG_CANARY)
     ElementType* real_data_start = stk->data - 1;
 #else
     ElementType* real_data_start = stk->data;

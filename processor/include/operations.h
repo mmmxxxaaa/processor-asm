@@ -3,10 +3,10 @@
 
 #include "stack.h"
 
-int StackAdd(Stack* stack);
-int StackSub(Stack* stack);
-int StackMul(Stack* stack);
-int StackDiv(Stack* stack);
-int StackSqrt(Stack* stack);
+int StackADD(Stack* stack);
+int StackSUB(Stack* stack);
+int StackMUL(Stack* stack);
+int StackDIV(Stack* stack);
+int StackSQRT(Stack* stack);
 
 #endif //OPERATIONS_CALC_H
