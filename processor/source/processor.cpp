@@ -27,7 +27,7 @@ const char* GetProcErrorString(ProcessorErrorType error)
 }
 
 ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сигнатуру + версию добавить
-{                                                                 //FIXME протестить джампы
+{
     assert(processor_pointer);
     assert(processor_pointer->code_buffer);
 

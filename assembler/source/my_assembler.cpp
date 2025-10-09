@@ -58,46 +58,111 @@ const char* GetAsmErrorString(AssemblerErrorType error)
     }
 }
 
-AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assembler* assembler_pointer)
+AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход только ради меток
+{
+    char token[kMaxCommandLength] = {};
+    int current_address = 0;
+    char* buffer_ptr = assembler_pointer->instructions_buffer;
+
+    while (sscanf(buffer_ptr, "%31s", token) == 1)
+    {
+        buffer_ptr += strlen(token);
+
+        while (isspace(*buffer_ptr))
+            buffer_ptr++;
+
+        if (token[0] == ':')
+        {
+            if (AddLabel(&assembler_pointer->label_table, token + 1, current_address)) // Сохраняем метку БЕЗ символа ':'
+            {
+                fprintf(stderr, "Error: Label table full or duplicate label '%s'\n", token);
+                return ASM_ERROR_ALLOCATION_FAILED; //FIXME
+            }
+            continue;  // ВАЖНО: пропускаем увеличение адреса для меток
+        }
+
+        OpCodes operation_code = GetOpCode(token);
+        if (operation_code == OP_ERR)                  //FIXME ебанина какая-то
+        {
+            RegCodes reg = GetRegisterByName(token);
+            if (reg != REG_INVALID)
+                continue;
+            return ASM_ERROR_UNKNOWN_COMMAND;
+        }
+        // команды с аргументами занимают дополнительное место
+        current_address += 2;
+
+        // Если команда требует аргумента, пропускаем следующий токен
+        if (CommandRequiresArgument(operation_code))  //FIXME ебанина какая-то, просто пропускаю регистры на первом этапе компиляции
+        {
+            char next_token[kMaxCommandLength] = {};
+            if (sscanf(buffer_ptr, "%31s", next_token) == 1)
+            {
+                buffer_ptr += strlen(next_token);
+                while (isspace(*buffer_ptr))
+                    buffer_ptr++;
+            }
+        }
+    }
+    assembler_pointer->size_of_binary_file = current_address;
+    return ASM_ERROR_NO;
+}
+
+int CommandRequiresArgument(OpCodes op)
+{
+    switch (op) {
+        case OP_PUSH:
+        case OP_POPR:
+        case OP_PUSHR:
+        case OP_JMP:
+        case OP_JB:
+        case OP_JBE:
+        case OP_JA:
+        case OP_JAE:
+        case OP_JE:
+        case OP_JNE:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот проход уже с записью в бинарный файл
 {
     assert(assembler_pointer);
     assert(assembler_pointer->binary_file);
 
-    char command_name[kMaxCommandLength] = {0};
+    char token[kMaxCommandLength] = {0};
     int argument = 0;
     int binary_index = 0;
     int commands_processed = 0;
     char* buffer_ptr = assembler_pointer->instructions_buffer;
     OpCodes operation_code = OP_ERR;
 
-    while (sscanf(buffer_ptr, "%s", command_name) == 1)
+    while (sscanf(buffer_ptr, "%31s", token) == 1)
     {
-        buffer_ptr += strlen(command_name);
+        buffer_ptr += strlen(token);
 
         while (isspace(*buffer_ptr))
             buffer_ptr++;
 
-        operation_code = GetOpCode(command_name);
-        if (operation_code == OP_ERR) //в кейс
+        if (token[0] == ':') //уже обработали метки
+            continue;
+
+        operation_code = GetOpCode(token);
+        if (operation_code == OP_ERR) //FIXME в кейс
             return ASM_ERROR_UNKNOWN_COMMAND;
 
-        assembler_pointer->binary_buffer[binary_index++] = operation_code; //записываем коды операций в бинарный буфер
+        assembler_pointer->binary_buffer[binary_index++] = operation_code;
 
         switch(operation_code)
         {
             case OP_PUSH:
-            case OP_JMP:
-            case OP_JB:
-            case OP_JBE:
-            case OP_JA:
-            case OP_JAE:
-            case OP_JE:
-            case OP_JNE:
                 if (sscanf(buffer_ptr, "%d", &argument) == 1) //фигурные скобки нужны, чтобы создать переменную внутри кейса
                 {
                     assembler_pointer->binary_buffer[binary_index++] = argument; // записываем аргумент в бинарный буфер
 
-            // FIXME - Вместо сдвига на размер числа strchr('\n')
+                    // FIXME - Вместо сдвига на размер числа strchr('\n')
                     char arg_buffer[32] = {0}; //создаем временный буфер для строкового представления числа
                     sprintf(arg_buffer, "%d", argument); //преобразуем число обратно в строку с помощью sprintf
                     buffer_ptr += strlen(arg_buffer); //сдвигаем указатель в буфере инструкций на длину этой строки
@@ -109,6 +174,70 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
                     return ASM_ERROR_EXPECTED_ARGUMENT;
                 }
                 break;
+
+            case OP_JMP:
+            case OP_JB:
+            case OP_JBE:
+            case OP_JA:
+            case OP_JAE:
+            case OP_JE:
+            case OP_JNE:
+                {
+                    char label_name[kMaxLabelLength] = {0};
+                    if (sscanf(buffer_ptr, "%31s", label_name) == 1)
+                    {
+                        // if (label_name[0] != ':')
+                        // {
+                        //     fprintf(stderr, "Error: Expected label after jump command, got '%s'\n", label_name);
+                        //     return ASM_ERROR_EXPECTED_ARGUMENT; //FIXME
+                        // }
+
+
+                        int label_address = FindLabel(&assembler_pointer->label_table, label_name);
+                        if (label_address == -1)
+                        {
+                            fprintf(stderr, "Error: Undefined label '%s'\n", label_name);
+                            return ASM_ERROR_EXPECTED_ARGUMENT; //FIXME
+                        }
+
+                        assembler_pointer->binary_buffer[binary_index++] = label_address;
+                        buffer_ptr += strlen(label_name);
+                        while (isspace(*buffer_ptr))
+                            buffer_ptr++;
+                    }
+                    else
+                    {
+                        return ASM_ERROR_EXPECTED_ARGUMENT;
+                    }
+
+                break;
+                }
+
+
+            case OP_POPR:
+            case OP_PUSHR:
+                {
+                    while (*buffer_ptr == ' ' || *buffer_ptr == '\t') {
+                        buffer_ptr++;
+                    }
+
+                    char register_name[32] = {};
+                    int read_count = sscanf(buffer_ptr, "%31s", register_name);
+
+                    if (read_count != 1)
+                        return ASM_ERROR_EXPECTED_REGISTER;
+
+                    RegCodes reg = GetRegisterByName(register_name);
+                    if (reg == REG_INVALID)
+                        return ASM_ERROR_INVALID_REGISTER; //мб тут вывести еще регистры, которые пользователь может использовать
+
+                    assembler_pointer->binary_buffer[binary_index++] = (int) reg;
+                    buffer_ptr += strlen(register_name);
+
+                    while (isspace(*buffer_ptr))
+                        buffer_ptr++;
+                    break;
+                }
 
             case OP_HLT:
             case OP_ADD:
@@ -122,38 +251,12 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
                 assembler_pointer->binary_buffer[binary_index++] = 0;
                 break;
 
-            case OP_POPR:
-            case OP_PUSHR:
-            {
-                while (*buffer_ptr == ' ' || *buffer_ptr == '\t') {
-                    buffer_ptr++;
-                }
-
-                char register_name[32] = {};
-                int read_count = sscanf(buffer_ptr, "%31s", register_name);
-
-                if (read_count != 1)
-                    return ASM_ERROR_EXPECTED_REGISTER;
-
-                RegCodes reg = GetRegisterByName(register_name);
-                if (reg == REG_INVALID)
-                    return ASM_ERROR_INVALID_REGISTER; //мб тут вывести еще регистры, которые пользователь может использовать
-
-                assembler_pointer->binary_buffer[binary_index++] = (int) reg;
-                buffer_ptr += strlen(register_name);
-
-                while (isspace(*buffer_ptr))
-                    buffer_ptr++;
-                break;
-            }
-
             case OP_ERR:
             default:
                 return ASM_ERROR_UNKNOWN_COMMAND;
         }
 
         commands_processed++;
-
         if (operation_code == OP_HLT)
             break;
     }
@@ -161,10 +264,14 @@ AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assemble
 
     printf("Processed %d commands\n", commands_processed);
     return ASM_ERROR_NO;
+
 }
 
-AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename)
-{//assert
+AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename) //FIXME можно не передавать input_filename, т.к. в конструкторе это уже происходит
+{
+    assert(assembler_pointer);
+    assert(input_filename);
+
     FILE* instruction_file = GetInputFile(input_filename);
     if (!instruction_file)
     {
@@ -206,13 +313,12 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
     assert(input_filename);
     assert(output_filename);
 
-    assembler_pointer -> binary_file = GetOutputFile(output_filename);
-    if (!assembler_pointer->binary_file)
-        return ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE;
+    assembler_pointer->instruction_filename = strdup(input_filename);
+    assembler_pointer->binary_filename      = strdup(output_filename);
 
-    FILE* instruction_file = GetInputFile(input_filename);
-    if (!instruction_file)
-        return ASM_ERROR_CANNOT_OPEN_INPUT_FILE;
+    assembler_pointer -> binary_file = GetOutputFile(output_filename);
+    if (!assembler_pointer -> binary_file)
+        return ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE;
 
     AssemblerErrorType error = ReadInstructionFileToBuffer(assembler_pointer, input_filename);
     if (error != ASM_ERROR_NO)
@@ -228,16 +334,17 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
     {
         free(assembler_pointer->instructions_buffer);
         assembler_pointer->instructions_buffer = NULL;
-        fclose(instruction_file);
+
+        fclose(assembler_pointer->binary_file);
+        assembler_pointer->binary_file = NULL;
         return ASM_ERROR_ALLOCATION_FAILED;
     }
 
-    assembler_pointer -> instruction_filename = strdup(input_filename);
-    assembler_pointer -> binary_filename      = strdup(output_filename);
+    InitLabelTable(&assembler_pointer->label_table);
 
     if (!assembler_pointer->instruction_filename || !assembler_pointer->binary_filename)
     {
-        AssemblerDtor(assembler_pointer);
+        AssemblerDtor(assembler_pointer); //FIXME нужно ли здесь вызывать деструктор
         return ASM_ERROR_ALLOCATION_FAILED;
     }
 
@@ -271,6 +378,7 @@ void AssemblerDtor(Assembler* assembler_pointer)
     assembler_pointer->instructions_buffer = NULL;
     assembler_pointer->binary_buffer = NULL;
     assembler_pointer->binary_file = NULL;
+    // assembler_pointer->label_table = NULL; //FIXME мб инициализатор меток вызвать тут?
 }
 
 FILE* GetInputFile(const char* instruction_filename)
@@ -316,15 +424,16 @@ const char* GetRegisterName(RegCodes reg)
     return "UNKNOWN";
 }
 
-RegCodes GetRegisterByName(const char* name) {
+RegCodes GetRegisterByName(const char* name)
+{
     const char* register_names[] = {
         "RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"
     };
 
-    for (int i = 0; i < kNRegisters; i++) {
-        if (strcmp(name, register_names[i]) == 0) {
+    for (int i = 0; i < kNRegisters; i++)
+    {
+        if (strcmp(name, register_names[i]) == 0)
             return (RegCodes) i;
-        }
     }
     return REG_INVALID;
 }
@@ -333,3 +442,35 @@ int IsValidRegister(RegCodes reg)
 {
     return (reg >= REG_RAX && reg <= REG_RHX);
 }
+
+void InitLabelTable(LabelTable* ptr_table) //FIXME что-то еще тут должно быть
+{
+    ptr_table->number_of_labels = 0;
+}
+
+int FindLabel(LabelTable* ptr_table, const char* name_of_label)
+{
+    for (int i = 0; i < ptr_table->number_of_labels; i++)
+    {
+        if (strcmp(ptr_table->labels[i].name, name_of_label) == 0)
+            return ptr_table->labels[i].address;
+    }
+    return -1;
+}
+
+int AddLabel(LabelTable* ptr_table, const char* name_of_label, int address)
+{
+    if (ptr_table->number_of_labels >= kMaxNOfLabels)
+        return -1; //FIXME в енам ошибок
+
+    if (FindLabel(ptr_table, name_of_label) != -1) //вдруг уже есть такая метка
+        return -2; //FIXME в енам ошибок
+
+    strncpy(ptr_table->labels[ptr_table->number_of_labels].name, name_of_label, kMaxLabelLength - 1);
+    ptr_table->labels[ptr_table->number_of_labels].name[kMaxLabelLength - 1] = '\0';
+    ptr_table->labels[ptr_table->number_of_labels].address = address;
+    ptr_table->number_of_labels++;
+
+    return 0;
+}
+

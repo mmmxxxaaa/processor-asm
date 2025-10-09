@@ -6,7 +6,10 @@
 
 #include "general_const_and_func.h"
 
-const int kMaxCommandLength = 10;
+const int kMaxCommandLength = 32;
+const int kMaxNOfLabels = 100;
+const int kMaxLabelLength = 32;
+
 
 typedef enum {
     REG_INVALID = -1,
@@ -21,17 +24,33 @@ typedef enum {
 } RegCodes;
 
 typedef struct {
+    char name[kMaxLabelLength];
+    int address;
+} Label;
+
+typedef struct {
+    Label labels[kMaxNOfLabels];
+    int number_of_labels;
+} LabelTable;
+
+typedef struct {
     char* instruction_filename; // имя файла на вход и указатель на него //нельзя конст
     char* binary_filename; // имя файла на выход и указатель на него     //нельзя конст
     FILE* binary_file;
     char* instructions_buffer; // буффер с текстом из входного файла, вводится один раз
     int*  binary_buffer;
+    int   size_of_binary_file;
+    LabelTable label_table;
 } Assembler;
 
 OpCodes GetOpCode(const char* command);
 const char* GetAsmErrorString(AssemblerErrorType error);
 
-AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assembler* assembler_pointer);
+AssemblerErrorType FirstPass(Assembler* assembler_pointer);
+int CommandRequiresArgument(OpCodes op);
+AssemblerErrorType SecondPass(Assembler* assembler_pointer);
+
+// AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assembler* assembler_pointer);
 AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename);
 AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input_filename, const char* output_filename);
 void AssemblerDtor(Assembler* assembler_pointer);
@@ -43,5 +62,10 @@ long int GetFileSize(FILE* file);
 const char* GetRegisterName(RegCodes reg);
 RegCodes GetRegisterByName(const char* name);
 int IsValidRegister(RegCodes reg);
+
+void InitLabelTable(LabelTable* ptr_table);
+int FindLabel(LabelTable* table, const char* name);
+int AddLabel(LabelTable* table, const char* name, int address);
+
 
 #endif //MY_ASSEMBLER

@@ -32,10 +32,18 @@ int main(int argc, const char** argv)
     free(path_to_instruction_file);
     free(path_to_binary_filename);
 
-    error = ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(&asm_struct);
+    error = FirstPass(&asm_struct);
     if (error != ASM_ERROR_NO)
     {
-        fprintf(stderr, "Assembly error: %s\n", GetAsmErrorString(error));
+        printf("First passing failed: %s\n", GetAsmErrorString(error));
+        AssemblerDtor(&asm_struct);
+        return 1;
+    }
+
+    error = SecondPass(&asm_struct);
+    if (error != ASM_ERROR_NO)
+    {
+        printf("Second passing failed: %s\n", GetAsmErrorString(error));
         AssemblerDtor(&asm_struct);
         return 1;
     }
