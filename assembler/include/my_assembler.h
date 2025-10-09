@@ -4,33 +4,9 @@
 #include <stdio.h>
 #include "asm_error_types.h"
 
+#include "general_const_and_func.h"
+
 const int kMaxCommandLength = 10;
-const int kNRegisters = 8;
-
-typedef enum {
-    OP_ERR    = -1,
-    OP_HLT    =  0,
-    OP_PUSH   =  1,
-    OP_POP    =  2,
-    OP_ADD    =  3,
-    OP_SUB    =  4,
-    OP_MUL    =  5,
-    OP_DIV    =  6,
-    OP_SQRT   =  7,
-    OP_OUT    =  8,
-    OP_IN     =  9,
-
-    OP_JMP    = 10,
-    OP_JB     = 11,
-    OP_JBE    = 12,
-    OP_JA     = 13,
-    OP_JAE    = 14,
-    OP_JE     = 15,
-    OP_JNE    = 16,
-
-    OP_PUSHR  = 33,
-    OP_POPR   = 34,
-} OpCodes;
 
 typedef enum {
     REG_INVALID = -1,
@@ -45,8 +21,8 @@ typedef enum {
 } RegCodes;
 
 typedef struct {
-    char* instruction_filename; // имя файла на вход и указатель на него
-    char* binary_filename; // имя файла на выход и указатель на него
+    char* instruction_filename; // имя файла на вход и указатель на него //нельзя конст
+    char* binary_filename; // имя файла на выход и указатель на него     //нельзя конст
     FILE* binary_file;
     char* instructions_buffer; // буффер с текстом из входного файла, вводится один раз
     int*  binary_buffer;

@@ -1,11 +1,13 @@
 #include "processor.h"
 
 #include <assert.h>
+#include <string.h>
 
 #include "stack.h"
 #include "operations.h"
-#include "my_assembler.h"
 #include "proc_error_types.h"
+
+#include "general_const_and_func.h"
 
 const char* GetProcErrorString(ProcessorErrorType error)
 {
@@ -22,22 +24,6 @@ const char* GetProcErrorString(ProcessorErrorType error)
         case PROC_ERROR_INVALID_JUMP: return "Invalid jump";
         default: return "Unknown error";
     }
-}
-
-ProcessorErrorType ExecuteBinary(const char* binary_filename, Processor* proc_struct_pointer)
-{
-    assert(binary_filename != NULL);
-
-//FIXME - в конструктор вынеси
-    ProcessorErrorType error = ReadBinaryFileToBuffer(proc_struct_pointer, binary_filename);
-    if (error != PROC_ERROR_NO)
-        return error;
-
-    error = ExecuteProcessor(proc_struct_pointer);
-    if (error != PROC_ERROR_NO)
-        return error;
-
-    return PROC_ERROR_NO;
 }
 
 ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
@@ -70,7 +56,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
             }
             case OP_POP:
             {
-                ElementType popped = StackPop(&processor_pointer->stack);
+                StackPop(&processor_pointer->stack);
                 break;
             }
 
@@ -125,9 +111,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
                 break;
             }
-//FIXME GitHub десктоп
-//FIXME готовиться к задачке
-//FIXME проверить условные джампы
+
             case OP_JB:
             {
                 if (processor_pointer->stack.size < 2)
@@ -147,10 +131,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
                     break;
                 }
-//макрос который преобразутеся в switch case
-//в этот макрос я передаю JBE а он потом просто склеивает ProcessOp и JBE
-//точно так же сделать с OP_PUSH
-//+ тогда поменять названия у функций с StackAdd на StackADD
+
                 proc_error = ProcessOpJBE(processor_pointer, argument, &should_increment_instruction_pointer);
                 break;
             }
@@ -169,7 +150,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
             case OP_JAE:
             {
-                if (processor_pointer->stack.size < 2) //ХУЙНЯ МБ ЭТО ТОЖЕ ВНЕСТИ В ПРОЦЕССИНГИ
+                if (processor_pointer->stack.size < 2)
                 {
                     proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
                     break;
@@ -306,7 +287,7 @@ ProcessorErrorType ReadBinaryFileToBuffer(Processor* processor_pointer, const ch
     return PROC_ERROR_NO;
 }
 
-ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_capacity)
+ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_capacity, const char* binary_filename)
 {
     assert(processor_pointer);
     assert(starting_capacity > 0);
@@ -319,8 +300,13 @@ ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_c
         processor_pointer->registers[i] = 0;
 
     processor_pointer->instruction_counter = 0;
+
     processor_pointer->code_buffer         = NULL;
     processor_pointer->code_buffer_size    = 0;
+
+    ProcessorErrorType error = ReadBinaryFileToBuffer(processor_pointer, binary_filename);
+    if (error != PROC_ERROR_NO)
+        return error;
 
     return PROC_ERROR_NO;
 }
@@ -376,116 +362,18 @@ long int GetSizeOfBinaryFile(FILE* binary_file)
     return size;
 }
 
-//FIXME надо избавиться от этого копипаста
-ProcessorErrorType ProcessOpJB(Processor* processor_pointer, int argument,
-                               int* should_increment_instruction_pointer)
-{
-    ElementType b = StackPop(&processor_pointer->stack);
-    ElementType a = StackPop(&processor_pointer->stack);
-
-    if (a < b)
-    {
-        if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
-        {
-            return PROC_ERROR_INVALID_JUMP;
-        }
-        processor_pointer->instruction_counter = argument;
-        *should_increment_instruction_pointer = 0;
-    }
-    return PROC_ERROR_NO;
-}
-//FIXME тут тоже придумать макрос, который будет принимать знак проверки (<=) и JBE
-ProcessorErrorType ProcessOpJBE(Processor* processor_pointer, int argument,
-                                int* should_increment_instruction_pointer)
-{
-    ElementType b = StackPop(&processor_pointer->stack);
-    ElementType a = StackPop(&processor_pointer->stack);
-
-    if (a <= b)
-    {
-        if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
-        {
-            return PROC_ERROR_INVALID_JUMP;
-        }
-        processor_pointer->instruction_counter = argument;
-        *should_increment_instruction_pointer = 0;
-    }
-    return PROC_ERROR_NO;
-}
+DEFINE_JUMP_FUNC_GENERATION(JB,  <)
+DEFINE_JUMP_FUNC_GENERATION(JBE, <=)
+DEFINE_JUMP_FUNC_GENERATION(JA,  >)
+DEFINE_JUMP_FUNC_GENERATION(JAE, >=)
+DEFINE_JUMP_FUNC_GENERATION(JE,  ==)
+DEFINE_JUMP_FUNC_GENERATION(JNE, !=)
 
 
-ProcessorErrorType ProcessOpJA(Processor* processor_pointer, int argument,
-                               int* should_increment_instruction_pointer)
-{
-    ElementType b = StackPop(&processor_pointer->stack);
-    ElementType a = StackPop(&processor_pointer->stack);
-
-    if (a > b)
-    {
-        if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
-        {
-            return PROC_ERROR_INVALID_JUMP;
-        }
-        processor_pointer->instruction_counter = argument;
-        *should_increment_instruction_pointer = 0;
-    }
-    return PROC_ERROR_NO;
-}
-
-
-ProcessorErrorType ProcessOpJAE(Processor* processor_pointer, int argument,
-                                int* should_increment_instruction_pointer)
-{
-    ElementType b = StackPop(&processor_pointer->stack);
-    ElementType a = StackPop(&processor_pointer->stack);
-
-    if (a >= b)
-    {
-        if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
-        {
-            return PROC_ERROR_INVALID_JUMP;
-        }
-        processor_pointer->instruction_counter = argument;
-        *should_increment_instruction_pointer = 0;
-    }
-    return PROC_ERROR_NO;
-}
-
-
-ProcessorErrorType ProcessOpJE(Processor* processor_pointer, int argument,
-                               int* should_increment_instruction_pointer)
-{
-    ElementType b = StackPop(&processor_pointer->stack);
-    ElementType a = StackPop(&processor_pointer->stack);
-
-    if (a == b)
-    {
-        if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
-        {
-            return PROC_ERROR_INVALID_JUMP;
-        }
-        processor_pointer->instruction_counter = argument;
-        *should_increment_instruction_pointer = 0;
-    }
-    return PROC_ERROR_NO;
-}
-
-
-ProcessorErrorType ProcessOpJNE(Processor* processor_pointer, int argument,
-                                int* should_increment_instruction_pointer)
-{
-    ElementType b = StackPop(&processor_pointer->stack);
-    ElementType a = StackPop(&processor_pointer->stack);
-
-    if (a != b)
-    {
-        if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
-        {
-            return PROC_ERROR_INVALID_JUMP;
-
-        }
-        processor_pointer->instruction_counter = argument;
-        *should_increment_instruction_pointer = 0;
-    }
-    return PROC_ERROR_NO;
-}
+//FIXME GitHub десктоп
+//FIXME готовиться к задачке
+//FIXME проверить условные джампы
+//макрос который преобразутеся в switch case
+//в этот макрос я передаю JBE а он потом просто склеивает ProcessOp и JBE
+//точно так же сделать с OP_PUSH
+//+ тогда поменять названия у функций с StackAdd на StackADD

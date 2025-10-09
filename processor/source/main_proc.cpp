@@ -5,18 +5,27 @@
 #include "stack.h"
 #include "processor.h"
 
-int main()
+int main(int argc, const char** argv)
 {
+    if (argc != 2)
+    {
+        fprintf(stderr, "Error opening files in %s\n", argv[0]);
+        return 1;
+    }
+
+    char* binary_filename = AddPrefixWithStrcat(argv[1], kPrefixOfPathToBinaryFile);
+
     Processor proc_struct = {};
-    ProcessorErrorType error_result = ProcessorCtor(&proc_struct, kStartingProcessorCapacity);
+    ProcessorErrorType error_result = ProcessorCtor(&proc_struct, kStartingProcessorCapacity, binary_filename);
     if (error_result != PROC_ERROR_NO)
     {
         fprintf(stderr, "Execution binary file failed with error %s\n", GetProcErrorString(error_result));
         ProcessorDtor(&proc_struct);
         return 1;
     }
+    free(binary_filename);
 
-    error_result = ExecuteBinary("../my_binary_file.txt", &proc_struct); //FIXME через аргументы командной строки
+    error_result = ExecuteProcessor(&proc_struct);
     if (error_result != PROC_ERROR_NO)
     {
         fprintf(stderr, "Execution binary file failed with error %s\n", GetProcErrorString(error_result));

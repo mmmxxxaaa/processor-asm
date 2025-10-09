@@ -7,7 +7,9 @@
 #include <ctype.h>
 
 #include "asm_error_types.h"
-//СИГМА СКИБИДИ
+
+#include "general_const_and_func.h"
+
 #define COMPARE_COMMAND(cmd, name) if (strcmp(command, #name) == 0) return OP_##name
 
 OpCodes GetOpCode(const char* command)
@@ -221,7 +223,7 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
     if (!assembler_pointer->binary_file)
         return ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE;
 
-    FILE* instruction_file = GetInputFile(input_filename); //ДЕЛО СДЕЛАНО ПОПРАВИЛ
+    FILE* instruction_file = GetInputFile(input_filename);
     if (!instruction_file)
         return ASM_ERROR_CANNOT_OPEN_INPUT_FILE;
 
@@ -284,7 +286,6 @@ void AssemblerDtor(Assembler* assembler_pointer)
     assembler_pointer->binary_file = NULL;
 }
 
-//ХУЙНЯ ПЕРЕДЕЛЫВАЙ
 FILE* GetInputFile(const char* instruction_filename)
 {
     FILE* instruction_file = fopen("../my_text_instructions.txt", "r");

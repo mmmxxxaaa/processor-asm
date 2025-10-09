@@ -1,6 +1,7 @@
 #!/bin/bash
 
-files="./source/stack.cpp ./source/my_defense.cpp ./source/operations.cpp ./source/processor.cpp ./source/main_proc.cpp"
+files="./source/stack.cpp ./source/my_defense.cpp ./source/operations.cpp ./source/processor.cpp \
+    ./source/main_proc.cpp ../general_constants_and_functions/general_const_and_func.cpp"
 
 flags="-D _DEBUG -ggdb3 -std=c++17 -O0 -Wall -Wextra -Weffc++ -Waggressive-loop-optimizations \
     -Wc++14-compat -Wmissing-declarations -Wcast-align -Wcast-qual -Wchar-subscripts \
@@ -16,4 +17,4 @@ flags="-D _DEBUG -ggdb3 -std=c++17 -O0 -Wall -Wextra -Weffc++ -Waggressive-loop-
     -fstack-protector -fstrict-overflow -flto-odr-type-merging -fno-omit-frame-pointer \
     -Wlarger-than=8192 -Wstack-usage=8192 -pie -fPIE -Werror=vla \
     -fsanitize=address,alignment,bool,bounds,enum,float-cast-overflow,float-divide-by-zero,integer-divide-by-zero,leak,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,undefined,unreachable,vla-bound,vptr"
-g++ -I./include -I../assembler/include $files -o process $flags
+g++ -I./include -I../general_constants_and_functions $files -o process $flags
