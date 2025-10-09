@@ -1,6 +1,8 @@
 #ifndef MY_STACK_H_
 #define MY_STACK_H_
 
+// #define DEBUG_CANARY
+
 #include <stdlib.h>
 
 #include "stack_error_types.h"

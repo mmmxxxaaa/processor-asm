@@ -8,7 +8,7 @@
 
 #include "asm_error_types.h"
 
-#include "general_const_and_func.h"
+// #include "general_const_and_func.h"
 
 #define COMPARE_COMMAND(cmd, name) if (strcmp(command, #name) == 0) return OP_##name
 

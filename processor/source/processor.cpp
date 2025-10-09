@@ -7,7 +7,7 @@
 #include "operations.h"
 #include "proc_error_types.h"
 
-#include "general_const_and_func.h"
+// #include "general_const_and_func.h"
 
 const char* GetProcErrorString(ProcessorErrorType error)
 {
@@ -252,7 +252,7 @@ void ProcDump(const Processor* proc, int errors, const char* msg)
 
     printf("Instruction counter: %d\n",  proc->instruction_counter);
     printf("Code buffer size:    %lu\n", proc->code_buffer_size);
-    printf("Code buffer adress   %p\n",  proc->code_buffer);
+    printf("Code buffer address: %p\n",  proc->code_buffer);
 }
 
 long int GetSizeOfBinaryFile(FILE* binary_file)
@@ -266,18 +266,10 @@ long int GetSizeOfBinaryFile(FILE* binary_file)
     return size;
 }
 
-BODY_JUMP_FUNC_GENERATION(JB,  <)
-BODY_JUMP_FUNC_GENERATION(JBE, <=)
-BODY_JUMP_FUNC_GENERATION(JA,  >)
-BODY_JUMP_FUNC_GENERATION(JAE, >=)
-BODY_JUMP_FUNC_GENERATION(JE,  ==)
-BODY_JUMP_FUNC_GENERATION(JNE, !=)
+BODY_JUMP_FUNC_GENERATION_WITH_RETURNING_PROC_ERROR_TYPE(JB,  <)
+BODY_JUMP_FUNC_GENERATION_WITH_RETURNING_PROC_ERROR_TYPE(JBE, <=)
+BODY_JUMP_FUNC_GENERATION_WITH_RETURNING_PROC_ERROR_TYPE(JA,  >)
+BODY_JUMP_FUNC_GENERATION_WITH_RETURNING_PROC_ERROR_TYPE(JAE, >=)
+BODY_JUMP_FUNC_GENERATION_WITH_RETURNING_PROC_ERROR_TYPE(JE,  ==)
+BODY_JUMP_FUNC_GENERATION_WITH_RETURNING_PROC_ERROR_TYPE(JNE, !=)
 
-
-//FIXME GitHub десктоп
-//FIXME готовиться к задачке
-
-//макрос который преобразутеся в switch case
-//в этот макрос я передаю JBE а он потом просто склеивает ProcessOp и JBE
-//точно так же сделать с OP_PUSH
-//+ тогда поменять названия у функций с StackAdd на StackADD

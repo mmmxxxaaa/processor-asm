@@ -19,7 +19,7 @@ typedef struct {
     size_t code_buffer_size;
 } Processor;
 
-#define BODY_JUMP_FUNC_GENERATION(name, compare_sign) \
+#define BODY_JUMP_FUNC_GENERATION_WITH_RETURNING_PROC_ERROR_TYPE(name, compare_sign) \
 ProcessorErrorType ProcessOp##name(Processor* processor_pointer, int argument, \
                                    int* should_increment_instruction_pointer) \
 { \
