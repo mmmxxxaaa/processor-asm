@@ -4,7 +4,7 @@
 #include <assert.h>
 
 #include "stack.h"
-//FIXME серьезнее функцию хэша
+
 size_t CalculateHash(const Stack* stack)
 {
     assert(stack != NULL);

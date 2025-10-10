@@ -10,7 +10,10 @@ typedef enum {
     ASM_ERROR_READING_FILE            = 1 << 5,
     ASM_ERROR_EXPECTED_ARGUMENT       = 1 << 6,
     ASM_ERROR_EXPECTED_REGISTER       = 1 << 7,
-    ASM_ERROR_INVALID_REGISTER        = 1 << 8
+    ASM_ERROR_INVALID_REGISTER        = 1 << 8,
+    ASM_ERROR_LABEL_TABLE             = 1 << 9,
+    ASM_ERROR_UNDEFINED_LABEL         = 1 << 10,
+    ASM_ERROR_REDEFINITION_LABEL      = 1 << 11
 } AssemblerErrorType;
 
 #endif // ASM_ERROR_TYPES_H_

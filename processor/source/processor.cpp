@@ -246,7 +246,7 @@ void ProcDump(const Processor* proc, int errors, const char* msg)
     printf("Processor [%p] Dump: %s\n", proc, msg);
     StackDump(&proc->stack, errors, "Stack in Processor");
 
-    const char* register_names[] = {"RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"}; //FIXME а что, если поменяем количество регистров?
+    const char* register_names[] = {"RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"};
     for (int i = 0; i < kNRegisters; i++)
         printf("%s: %d\n", register_names[i], proc->registers[i]);
 

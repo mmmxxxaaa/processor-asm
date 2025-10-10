@@ -27,6 +27,7 @@ int main(int argc, const char** argv)
     if (error != ASM_ERROR_NO)
     {
         fprintf(stderr, "Assembly error: %s\n", GetAsmErrorString(error));
+        AssemblerDtor(&asm_struct);
         return 1;
     }
     free(path_to_instruction_file);

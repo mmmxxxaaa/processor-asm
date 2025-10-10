@@ -76,9 +76,9 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
             if (AddLabel(&assembler_pointer->label_table, token + 1, current_address)) // Сохраняем метку БЕЗ символа ':'
             {
                 fprintf(stderr, "Error: Label table full or duplicate label '%s'\n", token);
-                return ASM_ERROR_ALLOCATION_FAILED; //FIXME
+                return ASM_ERROR_LABEL_TABLE;
             }
-            continue;  // ВАЖНО: пропускаем увеличение адреса для меток
+            continue;  // ВАЖНО!!!!!!! пропускаем увеличение адреса для меток
         }
 
         OpCodes operation_code = GetOpCode(token);
@@ -186,18 +186,11 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
                     char label_name[kMaxLabelLength] = {0};
                     if (sscanf(buffer_ptr, "%31s", label_name) == 1)
                     {
-                        // if (label_name[0] != ':')
-                        // {
-                        //     fprintf(stderr, "Error: Expected label after jump command, got '%s'\n", label_name);
-                        //     return ASM_ERROR_EXPECTED_ARGUMENT; //FIXME
-                        // }
-
-
                         int label_address = FindLabel(&assembler_pointer->label_table, label_name);
                         if (label_address == -1)
                         {
                             fprintf(stderr, "Error: Undefined label '%s'\n", label_name);
-                            return ASM_ERROR_EXPECTED_ARGUMENT; //FIXME
+                            return ASM_ERROR_UNDEFINED_LABEL;
                         }
 
                         assembler_pointer->binary_buffer[binary_index++] = label_address;
@@ -217,9 +210,8 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
             case OP_POPR:
             case OP_PUSHR:
                 {
-                    while (*buffer_ptr == ' ' || *buffer_ptr == '\t') {
+                    while (*buffer_ptr == ' ' || *buffer_ptr == '\t')
                         buffer_ptr++;
-                    }
 
                     char register_name[32] = {};
                     int read_count = sscanf(buffer_ptr, "%31s", register_name);
@@ -342,11 +334,8 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
 
     InitLabelTable(&assembler_pointer->label_table);
 
-    if (!assembler_pointer->instruction_filename || !assembler_pointer->binary_filename)
-    {
-        AssemblerDtor(assembler_pointer); //FIXME нужно ли здесь вызывать деструктор
+    if (!assembler_pointer->instruction_filename || !assembler_pointer->binary_filename) //FIXME нужно ли здесь вызывать деструктор
         return ASM_ERROR_ALLOCATION_FAILED;
-    }
 
     return ASM_ERROR_NO;
 }
@@ -381,23 +370,23 @@ void AssemblerDtor(Assembler* assembler_pointer)
     // assembler_pointer->label_table = NULL; //FIXME мб инициализатор меток вызвать тут?
 }
 
-FILE* GetInputFile(const char* instruction_filename)
+FILE* GetInputFile(const char* instruction_file_path)
 {
-    FILE* instruction_file = fopen("../my_text_instructions.txt", "r");
+    FILE* instruction_file = fopen(instruction_file_path, "r");
     if (instruction_file == NULL)
     {
-        printf("Error: Cannot open input file %s\n", instruction_filename);
+        printf("Error: Cannot open input file %s\n", instruction_file_path);
         return NULL;
     }
     return instruction_file;
 }
 
-FILE* GetOutputFile(const char* binary_filename)
+FILE* GetOutputFile(const char* binary_file_path)
 {
-    FILE* binary_file = fopen(binary_filename, "wb");
+    FILE* binary_file = fopen(binary_file_path, "wb");
     if (binary_file == NULL)
     {
-        printf("Error: Cannot open input file %s\n", binary_filename);
+        printf("Error: Cannot open input file %s\n", binary_file_path);
         return NULL;
     }
     return binary_file;
@@ -443,9 +432,15 @@ int IsValidRegister(RegCodes reg)
     return (reg >= REG_RAX && reg <= REG_RHX);
 }
 
-void InitLabelTable(LabelTable* ptr_table) //FIXME что-то еще тут должно быть
+void InitLabelTable(LabelTable* ptr_table)
 {
     ptr_table->number_of_labels = 0;
+    for (int index_of_label = 0; index_of_label < kMaxNOfLabels; index_of_label++)
+        for (int index_of_char_in_name = 0; index_of_char_in_name < kMaxLabelLength; index_of_char_in_name++)
+        {
+            ptr_table->labels[index_of_label].name[index_of_char_in_name] = '\0';
+            ptr_table->labels[index_of_label].address = -1;
+        }
 }
 
 int FindLabel(LabelTable* ptr_table, const char* name_of_label)
@@ -458,19 +453,19 @@ int FindLabel(LabelTable* ptr_table, const char* name_of_label)
     return -1;
 }
 
-int AddLabel(LabelTable* ptr_table, const char* name_of_label, int address)
+AssemblerErrorType AddLabel(LabelTable* ptr_table, const char* name_of_label, int address)
 {
     if (ptr_table->number_of_labels >= kMaxNOfLabels)
-        return -1; //FIXME в енам ошибок
+        return ASM_ERROR_LABEL_TABLE;
 
     if (FindLabel(ptr_table, name_of_label) != -1) //вдруг уже есть такая метка
-        return -2; //FIXME в енам ошибок
+        return ASM_ERROR_REDEFINITION_LABEL;
 
     strncpy(ptr_table->labels[ptr_table->number_of_labels].name, name_of_label, kMaxLabelLength - 1);
     ptr_table->labels[ptr_table->number_of_labels].name[kMaxLabelLength - 1] = '\0';
     ptr_table->labels[ptr_table->number_of_labels].address = address;
     ptr_table->number_of_labels++;
 
-    return 0;
+    return ASM_ERROR_NO;
 }
 

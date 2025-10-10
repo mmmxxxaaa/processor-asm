@@ -50,7 +50,6 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer);
 int CommandRequiresArgument(OpCodes op);
 AssemblerErrorType SecondPass(Assembler* assembler_pointer);
 
-// AssemblerErrorType ReadOpCodesFromInstructionFileAndPutThemToBinaryFile(Assembler* assembler_pointer);
 AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename);
 AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input_filename, const char* output_filename);
 void AssemblerDtor(Assembler* assembler_pointer);
@@ -65,7 +64,7 @@ int IsValidRegister(RegCodes reg);
 
 void InitLabelTable(LabelTable* ptr_table);
 int FindLabel(LabelTable* table, const char* name);
-int AddLabel(LabelTable* table, const char* name, int address);
+AssemblerErrorType AddLabel(LabelTable* table, const char* name, int address);
 
 
 #endif //MY_ASSEMBLER
