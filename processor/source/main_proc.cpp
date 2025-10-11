@@ -13,7 +13,7 @@ int main(int argc, const char** argv)
         return 1;
     }
 
-    char* binary_filename = AddPrefixWithStrcat(argv[1], kPrefixOfPathToBinaryFile);
+    const char* binary_filename = argv[1];
 
     Processor proc_struct = {};
     ProcessorErrorType error_result = ProcessorCtor(&proc_struct, kStartingProcessorCapacity, binary_filename);
@@ -23,7 +23,6 @@ int main(int argc, const char** argv)
         ProcessorDtor(&proc_struct);
         return 1;
     }
-    free(binary_filename);
 
     error_result = ExecuteProcessor(&proc_struct);
     if (error_result != PROC_ERROR_NO)

@@ -8,7 +8,6 @@
 
 #include "asm_error_types.h"
 
-// #include "general_const_and_func.h"
 
 #define COMPARE_COMMAND(cmd, name) if (strcmp(command, #name) == 0) return OP_##name
 
@@ -54,12 +53,16 @@ const char* GetAsmErrorString(AssemblerErrorType error)
         case ASM_ERROR_EXPECTED_ARGUMENT: return "Expected argument for PUSH";
         case ASM_ERROR_EXPECTED_REGISTER: return "Expected argument (register)";
         case ASM_ERROR_INVALID_REGISTER: return "Invalid register";
+        case ASM_ERROR_UNDEFINED_LABEL: return "Undefined label";
+        case ASM_ERROR_REDEFINITION_LABEL: return "Redefinition of label";
         default: return "Unknown error";
     }
 }
 
 AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход только ради меток
 {
+    assert(assembler_pointer);
+
     char token[kMaxCommandLength] = {};
     int current_address = 0;
     char* buffer_ptr = assembler_pointer->instructions_buffer;
@@ -71,10 +74,11 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
         while (isspace(*buffer_ptr))
             buffer_ptr++;
 
-        if (token[0] == ':')
+        if (token[0] == kLabelIdSymbol)
         {
             if (AddLabel(&assembler_pointer->label_table, token + 1, current_address)) // Сохраняем метку БЕЗ символа ':'
             {
+                //Print this massage in main
                 fprintf(stderr, "Error: Label table full or duplicate label '%s'\n", token);
                 return ASM_ERROR_LABEL_TABLE;
             }
@@ -84,9 +88,9 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
         OpCodes operation_code = GetOpCode(token);
         if (operation_code == OP_ERR)                  //FIXME ебанина какая-то
         {
-            RegCodes reg = GetRegisterByName(token);
-            if (reg != REG_INVALID)
-                continue;
+            // RegCodes reg = GetRegisterByName(token);
+            // if (reg != REG_INVALID)
+            //     continue;
             return ASM_ERROR_UNKNOWN_COMMAND;
         }
         // команды с аргументами занимают дополнительное место
@@ -146,11 +150,11 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
         while (isspace(*buffer_ptr))
             buffer_ptr++;
 
-        if (token[0] == ':') //уже обработали метки
+        if (token[0] == kLabelIdSymbol)
             continue;
 
         operation_code = GetOpCode(token);
-        if (operation_code == OP_ERR) //FIXME в кейс
+        if (operation_code == OP_ERR)
             return ASM_ERROR_UNKNOWN_COMMAND;
 
         assembler_pointer->binary_buffer[binary_index++] = operation_code;
@@ -188,10 +192,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
                     {
                         int label_address = FindLabel(&assembler_pointer->label_table, label_name);
                         if (label_address == -1)
-                        {
-                            fprintf(stderr, "Error: Undefined label '%s'\n", label_name);
                             return ASM_ERROR_UNDEFINED_LABEL;
-                        }
 
                         assembler_pointer->binary_buffer[binary_index++] = label_address;
                         buffer_ptr += strlen(label_name);
@@ -210,10 +211,10 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
             case OP_POPR:
             case OP_PUSHR:
                 {
-                    while (*buffer_ptr == ' ' || *buffer_ptr == '\t')
+                    while (isspace(*buffer_ptr))
                         buffer_ptr++;
 
-                    char register_name[32] = {};
+                    char register_name[kMaxCommandLength] = {};
                     int read_count = sscanf(buffer_ptr, "%31s", register_name);
 
                     if (read_count != 1)
@@ -254,12 +255,13 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
     }
     fwrite(assembler_pointer->binary_buffer, sizeof(int), binary_index, assembler_pointer->binary_file);
 
+// FIXME - logger
     printf("Processed %d commands\n", commands_processed);
     return ASM_ERROR_NO;
 
 }
 
-AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename) //FIXME можно не передавать input_filename, т.к. в конструкторе это уже происходит
+AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename)
 {
     assert(assembler_pointer);
     assert(input_filename);
@@ -334,7 +336,7 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
 
     InitLabelTable(&assembler_pointer->label_table);
 
-    if (!assembler_pointer->instruction_filename || !assembler_pointer->binary_filename) //FIXME нужно ли здесь вызывать деструктор
+    if (!assembler_pointer->instruction_filename || !assembler_pointer->binary_filename)
         return ASM_ERROR_ALLOCATION_FAILED;
 
     return ASM_ERROR_NO;
@@ -367,11 +369,12 @@ void AssemblerDtor(Assembler* assembler_pointer)
     assembler_pointer->instructions_buffer = NULL;
     assembler_pointer->binary_buffer = NULL;
     assembler_pointer->binary_file = NULL;
-    // assembler_pointer->label_table = NULL; //FIXME мб инициализатор меток вызвать тут?
 }
 
 FILE* GetInputFile(const char* instruction_file_path)
 {
+    assert(instruction_file_path);
+
     FILE* instruction_file = fopen(instruction_file_path, "r");
     if (instruction_file == NULL)
     {
@@ -383,6 +386,8 @@ FILE* GetInputFile(const char* instruction_file_path)
 
 FILE* GetOutputFile(const char* binary_file_path)
 {
+    assert(binary_file_path);
+
     FILE* binary_file = fopen(binary_file_path, "wb");
     if (binary_file == NULL)
     {
@@ -403,18 +408,10 @@ long int GetFileSize(FILE* file)
     return file_size;
 }
 
-const char* GetRegisterName(RegCodes reg)
-{
-    const char* register_names[] = {"RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"};
-
-    if (reg >= REG_RAX && reg <= REG_RHX) {
-        return register_names[reg];
-    }
-    return "UNKNOWN";
-}
-
 RegCodes GetRegisterByName(const char* name)
 {
+    assert(name);
+
     const char* register_names[] = {
         "RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"
     };
@@ -427,13 +424,11 @@ RegCodes GetRegisterByName(const char* name)
     return REG_INVALID;
 }
 
-int IsValidRegister(RegCodes reg)
-{
-    return (reg >= REG_RAX && reg <= REG_RHX);
-}
 
 void InitLabelTable(LabelTable* ptr_table)
 {
+    assert(ptr_table);
+
     ptr_table->number_of_labels = 0;
     for (int index_of_label = 0; index_of_label < kMaxNOfLabels; index_of_label++)
         for (int index_of_char_in_name = 0; index_of_char_in_name < kMaxLabelLength; index_of_char_in_name++)
@@ -445,6 +440,9 @@ void InitLabelTable(LabelTable* ptr_table)
 
 int FindLabel(LabelTable* ptr_table, const char* name_of_label)
 {
+    assert(ptr_table);
+    assert(name_of_label);
+
     for (int i = 0; i < ptr_table->number_of_labels; i++)
     {
         if (strcmp(ptr_table->labels[i].name, name_of_label) == 0)
@@ -455,6 +453,9 @@ int FindLabel(LabelTable* ptr_table, const char* name_of_label)
 
 AssemblerErrorType AddLabel(LabelTable* ptr_table, const char* name_of_label, int address)
 {
+    assert(ptr_table);
+    assert(name_of_label);
+
     if (ptr_table->number_of_labels >= kMaxNOfLabels)
         return ASM_ERROR_LABEL_TABLE;
 
@@ -468,4 +469,3 @@ AssemblerErrorType AddLabel(LabelTable* ptr_table, const char* name_of_label, in
 
     return ASM_ERROR_NO;
 }
-

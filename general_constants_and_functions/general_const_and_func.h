@@ -2,8 +2,6 @@
 #define GENERAL_CONST_AND_FUNC_H_
 
 static const int kNRegisters = 8;
-static const char* kPrefixOfPathToInstructionsFile = "../";
-static const char* kPrefixOfPathToBinaryFile = "../";
 
 typedef enum {
     OP_ERR    = -1,
@@ -29,7 +27,5 @@ typedef enum {
     OP_PUSHR  = 33,
     OP_POPR   = 34,
 } OpCodes;
-
-char* AddPrefixWithStrcat(const char* input_filename, const char* prefix);
 
 #endif // GENERAL_CONST_AND_FUNC_H_

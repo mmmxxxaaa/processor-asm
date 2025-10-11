@@ -6,10 +6,10 @@
 
 #include "general_const_and_func.h"
 
-const int kMaxCommandLength = 32;
-const int kMaxNOfLabels = 100;
-const int kMaxLabelLength = 32;
-
+const int  kMaxCommandLength = 32;
+const int  kMaxNOfLabels = 100;
+const int  kMaxLabelLength = 32;
+const char kLabelIdSymbol = ':';
 
 typedef enum {
     REG_INVALID = -1,
@@ -58,9 +58,8 @@ FILE* GetInputFile(const char* instruction_filename);
 FILE* GetOutputFile(const char* output_filename);
 long int GetFileSize(FILE* file);
 
-const char* GetRegisterName(RegCodes reg);
 RegCodes GetRegisterByName(const char* name);
-int IsValidRegister(RegCodes reg);
+
 
 void InitLabelTable(LabelTable* ptr_table);
 int FindLabel(LabelTable* table, const char* name);

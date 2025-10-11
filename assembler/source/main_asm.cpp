@@ -10,28 +10,23 @@ int main(int argc, const char** argv)
         fprintf(stderr, "Error opening files in %s\n", argv[0]);
         return 1;
     }
+    const char* instruction_filename = argv[1];
+    const char* binary_filename = argv[2];
 
-    char* path_to_instruction_file = AddPrefixWithStrcat(argv[1], kPrefixOfPathToInstructionsFile);
-    char* path_to_binary_filename = AddPrefixWithStrcat(argv[2], kPrefixOfPathToBinaryFile);
-
-    if (path_to_instruction_file == NULL || path_to_binary_filename == NULL)
+    if (instruction_filename == NULL || binary_filename == NULL)
     {
         fprintf(stderr, "Error: Memory allocation failed\n");
-        free(path_to_instruction_file);
-        free(path_to_binary_filename);
         return 1;
     }
 
     Assembler asm_struct = {};
-    AssemblerErrorType error = AssemblerCtor(&asm_struct, path_to_instruction_file, path_to_binary_filename);
+    AssemblerErrorType error = AssemblerCtor(&asm_struct, instruction_filename, binary_filename);
     if (error != ASM_ERROR_NO)
     {
         fprintf(stderr, "Assembly error: %s\n", GetAsmErrorString(error));
         AssemblerDtor(&asm_struct);
         return 1;
     }
-    free(path_to_instruction_file);
-    free(path_to_binary_filename);
 
     error = FirstPass(&asm_struct);
     if (error != ASM_ERROR_NO)
@@ -41,6 +36,7 @@ int main(int argc, const char** argv)
         return 1;
     }
 
+//FIXME - #define ERROR_HANDLER(SecondPass(&asm_struct))
     error = SecondPass(&asm_struct);
     if (error != ASM_ERROR_NO)
     {
