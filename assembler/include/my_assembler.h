@@ -66,6 +66,7 @@ RegCodes GetRegisterByName(const char* name);
 void InitLabelTable(LabelTable* ptr_table);
 int FindLabel(LabelTable* table, const char* name);
 AssemblerErrorType AddLabel(LabelTable* table, const char* name, int address);
+void SkipAllSpaceSymbols(char** ptr_to_buffer_ptr);
 
 
 #endif //MY_ASSEMBLER

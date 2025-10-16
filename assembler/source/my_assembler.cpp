@@ -72,8 +72,7 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
     {
         buffer_ptr += strlen(token);
 
-        while (isspace(*buffer_ptr))
-            buffer_ptr++;
+        SkipAllSpaceSymbols(&buffer_ptr);
 
         if (token[0] == kLabelIdSymbol)
         {
@@ -97,8 +96,7 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
             if (sscanf(buffer_ptr, "%31s", next_token) == 1)
             {
                 buffer_ptr += strlen(next_token);
-                while (isspace(*buffer_ptr))
-                    buffer_ptr++;
+                SkipAllSpaceSymbols(&buffer_ptr);
             }
         }
     }
@@ -153,8 +151,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
     {
         buffer_ptr += strlen(token);
 
-        while (isspace(*buffer_ptr))
-            buffer_ptr++;
+        SkipAllSpaceSymbols(&buffer_ptr);
 
         if (token[0] == kLabelIdSymbol)
             continue;
@@ -176,8 +173,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
                     char arg_buffer[32] = {0}; //создаем временный буфер для строкового представления числа
                     sprintf(arg_buffer, "%d", argument); //преобразуем число обратно в строку с помощью sprintf
                     buffer_ptr += strlen(arg_buffer); //сдвигаем указатель в буфере инструкций на длину этой строки
-                    while (isspace(*buffer_ptr))//ДЕЛО СДЕЛАНО
-                        buffer_ptr++;
+                    SkipAllSpaceSymbols(&buffer_ptr);
                 }
                 else
                 {
@@ -203,8 +199,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
 
                         assembler_pointer->binary_buffer[binary_index++] = label_address;
                         buffer_ptr += strlen(label_name);
-                        while (isspace(*buffer_ptr)) //FIXME в функцию
-                            buffer_ptr++;
+                        SkipAllSpaceSymbols(&buffer_ptr);
                     }
                     else
                         return ASM_ERROR_EXPECTED_ARGUMENT;
@@ -216,8 +211,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
             case OP_POPR:
             case OP_PUSHR:
                 {
-                    while (isspace(*buffer_ptr))
-                        buffer_ptr++;
+                    SkipAllSpaceSymbols(&buffer_ptr);
 
                     char register_name[kMaxCommandLength] = {};
                     int read_count = sscanf(buffer_ptr, "%31s", register_name);
@@ -231,9 +225,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
 
                     assembler_pointer->binary_buffer[binary_index++] = (int) reg;
                     buffer_ptr += strlen(register_name);
-
-                    while (isspace(*buffer_ptr))
-                        buffer_ptr++;
+                    SkipAllSpaceSymbols(&buffer_ptr);
                     break;
                 }
 
@@ -470,4 +462,10 @@ AssemblerErrorType AddLabel(LabelTable* ptr_table, const char* name_of_label, in
     ptr_table->number_of_labels++;
 
     return ASM_ERROR_NO;
+}
+
+void SkipAllSpaceSymbols(char** ptr_to_buffer_ptr)
+{
+    while (isspace(**ptr_to_buffer_ptr))
+        (*ptr_to_buffer_ptr)++; //FIXME скобки обязательно
 }

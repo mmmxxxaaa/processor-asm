@@ -65,7 +65,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                 stack_error = StackPUSH(&processor_pointer->stack, value);
                 break;
             }
-//FIXME у меня проблема с ХАЛЬТОМ, он должен быть только последней строчкой, что странно
+                                                        //ДЕЛО СДЕЛАНО (поправил) у меня проблема с ХАЛЬТОМ, он должен быть только последней строчкой, что странно
             case OP_JMP:
             {
                 if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
@@ -88,7 +88,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
 
             case OP_CALL:
             {
-                if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //FIXME
+                if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0)
                 {
                     proc_error = PROC_ERROR_INVALID_JUMP; //FIXME
                     break;
@@ -183,7 +183,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                 return PROC_ERROR_UNKNOWN_OPCODE;
         }
 
-        if (proc_error != PROC_ERROR_NO || stack_error != ERROR_NO) //FIXME разобраться с совместимостью ошибок, попробовать привести их в один тип
+        if (proc_error != PROC_ERROR_NO || stack_error != ERROR_NO)
         {
             ProcDump(processor_pointer, proc_error, "Processor Execution failed");
             return proc_error;
