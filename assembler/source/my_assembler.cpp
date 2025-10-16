@@ -8,13 +8,10 @@
 
 #include "asm_error_types.h"
 
-
-#define COMPARE_COMMAND(cmd, name) if (strcmp(command, #name) == 0) return OP_##name
-
 OpCodes GetOpCode(const char* command)
 {
     assert(command != NULL);
-    // сделать макрос, который принимает на вход имя команды и раскрывается в такой if с помощью ##, типо OP_ ## HLT
+
     COMPARE_COMMAND(command, HLT);
     COMPARE_COMMAND(command, PUSH);
     COMPARE_COMMAND(command, POP);
@@ -34,6 +31,9 @@ OpCodes GetOpCode(const char* command)
     COMPARE_COMMAND(command, JE);
     COMPARE_COMMAND(command, JNE);
 
+    COMPARE_COMMAND(command, CALL);
+    COMPARE_COMMAND(command, RET);
+
     COMPARE_COMMAND(command, PUSHR);
     COMPARE_COMMAND(command, POPR);
 
@@ -44,18 +44,19 @@ OpCodes GetOpCode(const char* command)
 const char* GetAsmErrorString(AssemblerErrorType error)
 {
     switch (error) {
-        case ASM_ERROR_NO: return "No error";
-        case ASM_ERROR_UNKNOWN_COMMAND: return "Unknown command";
-        case ASM_ERROR_ALLOCATION_FAILED: return "Memory allocation failed";
-        case ASM_ERROR_CANNOT_OPEN_INPUT_FILE: return "Cannot open input file";
+        case ASM_ERROR_NO:                      return "No error";
+        case ASM_ERROR_UNKNOWN_COMMAND:         return "Unknown command";
+        case ASM_ERROR_ALLOCATION_FAILED:       return "Memory allocation failed";
+        case ASM_ERROR_CANNOT_OPEN_INPUT_FILE:  return "Cannot open input file";
         case ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE: return "Cannot open output file";
-        case ASM_ERROR_READING_FILE: return "Error reading file";
-        case ASM_ERROR_EXPECTED_ARGUMENT: return "Expected argument for PUSH";
-        case ASM_ERROR_EXPECTED_REGISTER: return "Expected argument (register)";
-        case ASM_ERROR_INVALID_REGISTER: return "Invalid register";
-        case ASM_ERROR_UNDEFINED_LABEL: return "Undefined label";
-        case ASM_ERROR_REDEFINITION_LABEL: return "Redefinition of label";
-        default: return "Unknown error";
+        case ASM_ERROR_READING_FILE:            return "Error reading file";
+        case ASM_ERROR_EXPECTED_ARGUMENT:       return "Expected argument for PUSH";
+        case ASM_ERROR_EXPECTED_REGISTER:       return "Expected argument (register)";
+        case ASM_ERROR_INVALID_REGISTER:        return "Invalid register";
+        case ASM_ERROR_LABEL_TABLE:             return "Label Table Error";
+        case ASM_ERROR_UNDEFINED_LABEL:         return "Undefined label";
+        case ASM_ERROR_REDEFINITION_LABEL:      return "Redefinition of label";
+        default:                                return "Unknown error";
     }
 }
 
@@ -76,28 +77,21 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
 
         if (token[0] == kLabelIdSymbol)
         {
-            if (AddLabel(&assembler_pointer->label_table, token + 1, current_address)) // Сохраняем метку БЕЗ символа ':'
-            {
-                //Print this massage in main
-                fprintf(stderr, "Error: Label table full or duplicate label '%s'\n", token);
+            if (AddLabel(&assembler_pointer->label_table, token, current_address)) // Сохраняем метку БЕЗ символа ':' //FIXME нужно ли +1 к токену //типа в JE metka пишем без двоеточия, а в уже самой метке :metka
                 return ASM_ERROR_LABEL_TABLE;
-            }
+
             continue;  // ВАЖНО!!!!!!! пропускаем увеличение адреса для меток
         }
 
         OpCodes operation_code = GetOpCode(token);
-        if (operation_code == OP_ERR)                  //FIXME ебанина какая-то
-        {
-            // RegCodes reg = GetRegisterByName(token);
-            // if (reg != REG_INVALID)
-            //     continue;
+        if (operation_code == OP_ERR)
             return ASM_ERROR_UNKNOWN_COMMAND;
-        }
+
         // команды с аргументами занимают дополнительное место
         current_address += 2;
 
         // Если команда требует аргумента, пропускаем следующий токен
-        if (CommandRequiresArgument(operation_code))  //FIXME ебанина какая-то, просто пропускаю регистры на первом этапе компиляции
+        if (CommandRequiresArgument(operation_code))
         {
             char next_token[kMaxCommandLength] = {};
             if (sscanf(buffer_ptr, "%31s", next_token) == 1)
@@ -125,7 +119,19 @@ int CommandRequiresArgument(OpCodes op)
         case OP_JAE:
         case OP_JE:
         case OP_JNE:
+        case OP_CALL:
             return 1;
+        case OP_ERR:
+        case OP_HLT:
+        case OP_POP:
+        case OP_ADD:
+        case OP_SUB:
+        case OP_MUL:
+        case OP_DIV:
+        case OP_SQRT:
+        case OP_OUT:
+        case OP_IN:
+        case OP_RET:
         default:
             return 0;
     }
@@ -170,7 +176,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
                     char arg_buffer[32] = {0}; //создаем временный буфер для строкового представления числа
                     sprintf(arg_buffer, "%d", argument); //преобразуем число обратно в строку с помощью sprintf
                     buffer_ptr += strlen(arg_buffer); //сдвигаем указатель в буфере инструкций на длину этой строки
-                    while ((*buffer_ptr == ' ') || (*buffer_ptr == '\n') || (*buffer_ptr == '\r') || (*buffer_ptr == '\t'))// Пропускаем пробелы после аргумента
+                    while (isspace(*buffer_ptr))//ДЕЛО СДЕЛАНО
                         buffer_ptr++;
                 }
                 else
@@ -186,6 +192,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
             case OP_JAE:
             case OP_JE:
             case OP_JNE:
+            case OP_CALL:
                 {
                     char label_name[kMaxLabelLength] = {0};
                     if (sscanf(buffer_ptr, "%31s", label_name) == 1)
@@ -196,13 +203,11 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
 
                         assembler_pointer->binary_buffer[binary_index++] = label_address;
                         buffer_ptr += strlen(label_name);
-                        while (isspace(*buffer_ptr))
+                        while (isspace(*buffer_ptr)) //FIXME в функцию
                             buffer_ptr++;
                     }
                     else
-                    {
                         return ASM_ERROR_EXPECTED_ARGUMENT;
-                    }
 
                 break;
                 }
@@ -232,6 +237,10 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
                     break;
                 }
 
+            case OP_RET:
+                assembler_pointer->binary_buffer[binary_index++] = 0;
+                break;
+
             case OP_HLT:
             case OP_ADD:
             case OP_POP:
@@ -250,8 +259,8 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
         }
 
         commands_processed++;
-        if (operation_code == OP_HLT)
-            break;
+        // if (operation_code == OP_HLT) //FIXME иначе останавливается, как только встретит первый HLT
+        //     break;
     }
     fwrite(assembler_pointer->binary_buffer, sizeof(int), binary_index, assembler_pointer->binary_file);
 
@@ -307,8 +316,8 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
     assert(input_filename);
     assert(output_filename);
 
-    assembler_pointer->instruction_filename = strdup(input_filename);
-    assembler_pointer->binary_filename      = strdup(output_filename);
+    assembler_pointer->instruction_filename = input_filename;
+    assembler_pointer->binary_filename      = output_filename;
 
     assembler_pointer -> binary_file = GetOutputFile(output_filename);
     if (!assembler_pointer -> binary_file)
@@ -356,13 +365,6 @@ void AssemblerDtor(Assembler* assembler_pointer)
 
     if (assembler_pointer->binary_file)
         fclose(assembler_pointer->binary_file);
-
-    if (assembler_pointer->instruction_filename)
-        free(assembler_pointer->instruction_filename);
-
-    if (assembler_pointer->binary_filename)
-        free(assembler_pointer->binary_filename);
-
 
     assembler_pointer->instruction_filename = NULL;
     assembler_pointer->binary_filename = NULL;

@@ -1,0 +1,29 @@
+PUSH 5
+CALL :factorial
+OUT
+HLT
+
+:factorial
+POPR RAX
+PUSHR RAX
+OUT
+PUSHR RAX
+PUSH 1
+JE :base_case
+
+PUSHR RAX
+PUSHR RAX
+PUSH 1
+SUB
+CALL :factorial
+
+MUL
+PUSH 777
+OUT
+RET
+
+:base_case
+PUSH 1 !!!ПОЧЕМУ БЕЗ ЭТОГО НЕ РАБОТАЛО БЛИН
+PUSH -1
+OUT
+RET

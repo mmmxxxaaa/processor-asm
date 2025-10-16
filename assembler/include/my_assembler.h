@@ -6,6 +6,8 @@
 
 #include "general_const_and_func.h"
 
+#define COMPARE_COMMAND(cmd, name) if (strcmp(command, #name) == 0) return OP_##name
+
 const int  kMaxCommandLength = 32;
 const int  kMaxNOfLabels = 100;
 const int  kMaxLabelLength = 32;
@@ -34,8 +36,8 @@ typedef struct {
 } LabelTable;
 
 typedef struct {
-    char* instruction_filename; // имя файла на вход и указатель на него //нельзя конст
-    char* binary_filename; // имя файла на выход и указатель на него     //нельзя конст
+    const char* instruction_filename; // имя файла на вход и указатель на него //нельзя конст
+    const char* binary_filename; // имя файла на выход и указатель на него     //нельзя конст
     FILE* binary_file;
     char* instructions_buffer; // буффер с текстом из входного файла, вводится один раз
     int*  binary_buffer;

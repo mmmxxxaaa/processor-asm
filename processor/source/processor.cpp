@@ -7,22 +7,20 @@
 #include "operations.h"
 #include "proc_error_types.h"
 
-// #include "general_const_and_func.h"
-
 const char* GetProcErrorString(ProcessorErrorType error)
 {
     switch (error)
     {
-        case PROC_ERROR_NO: return "No error";
-        case PROC_ERROR_ALLOCATION_FAILED: return "Memory allocation failed";
+        case PROC_ERROR_NO:                      return "No error";
+        case PROC_ERROR_ALLOCATION_FAILED:       return "Memory allocation failed";
         case PROC_ERROR_CANNOT_OPEN_BINARY_FILE: return "Cannot open binary file";
-        case PROC_ERROR_READING_FILE: return "Error reading file";
-        case PROC_ERROR_UNKNOWN_OPCODE: return "Unknown opcode";
-        case PROC_ERROR_STACK_OPERATION_FAILED: return "Stack operation failed";
-        case PROC_ERROR_INVALID_STATE: return "Invalid processor state";
-        case PROC_ERROR_INVALID_REGISTER: return "Invalid register";
-        case PROC_ERROR_INVALID_JUMP: return "Invalid jump";
-        default: return "Unknown error";
+        case PROC_ERROR_READING_FILE:            return "Error reading file";
+        case PROC_ERROR_UNKNOWN_OPCODE:          return "Unknown opcode";
+        case PROC_ERROR_STACK_OPERATION_FAILED:  return "Stack operation failed";
+        case PROC_ERROR_INVALID_STATE:           return "Invalid processor state";
+        case PROC_ERROR_INVALID_REGISTER:        return "Invalid register";
+        case PROC_ERROR_INVALID_JUMP:            return "Invalid jump";
+        default:                                 return "Unknown error";
     }
 }
 
@@ -43,7 +41,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
     while (processor_pointer->instruction_counter < processor_pointer->code_buffer_size)
     {
         int current_instruction_counter = processor_pointer->instruction_counter;
-        op_code = processor_pointer->code_buffer[current_instruction_counter];
+        op_code  = processor_pointer->code_buffer[current_instruction_counter];
         argument = processor_pointer->code_buffer[current_instruction_counter + 1];
 
         int should_increment_instruction_pointer = 1;
@@ -67,7 +65,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                 stack_error = StackPUSH(&processor_pointer->stack, value);
                 break;
             }
-
+//FIXME у меня проблема с ХАЛЬТОМ, он должен быть только последней строчкой, что странно
             case OP_JMP:
             {
                 if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
@@ -88,6 +86,50 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
             PROCESS_JUMP_OP(JE)
             PROCESS_JUMP_OP(JNE)
 
+            case OP_CALL:
+            {
+                if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //FIXME
+                {
+                    proc_error = PROC_ERROR_INVALID_JUMP; //FIXME
+                    break;
+                }
+
+                //сохр адрес след команды после CALL
+                int return_address = processor_pointer->instruction_counter + 2;
+
+                stack_error = StackPUSH(&processor_pointer->return_stack, return_address);
+                if (stack_error != ERROR_NO)
+                {
+                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
+                    break;
+                }
+
+                processor_pointer->instruction_counter = argument;
+                should_increment_instruction_pointer = 0;
+                break;
+            }
+
+            case OP_RET:
+            {
+                if (processor_pointer->return_stack.size == 0)
+                {
+                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
+                    break;
+                }
+
+                int return_address = StackPOP(&processor_pointer->return_stack);
+
+                if (return_address < 0 || return_address >= processor_pointer->code_buffer_size || return_address % 2 != 0)
+                {
+                    proc_error = PROC_ERROR_INVALID_JUMP;
+                    break;
+                }
+
+                processor_pointer->instruction_counter = return_address;
+                should_increment_instruction_pointer = 0;
+                break;
+            }
+
             case OP_PUSHR: //засунуть в стек из регистра
             {
                 if (argument < 0 || argument >= kNRegisters)
@@ -95,6 +137,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                     proc_error = PROC_ERROR_INVALID_REGISTER;
                     break;
                 }
+
                 ElementType dusha_registra = processor_pointer->registers[argument];
                 stack_error = StackPUSH(&processor_pointer->stack, dusha_registra);
 
@@ -196,7 +239,11 @@ ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_c
     assert(processor_pointer);
     assert(starting_capacity > 0);
 
-    int stack_ctor_result = StackCtor(&(processor_pointer -> stack), starting_capacity);
+    int stack_ctor_result = StackCtor(&(processor_pointer->stack), starting_capacity);
+    if (stack_ctor_result != ERROR_NO)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    stack_ctor_result = StackCtor(&(processor_pointer->return_stack), starting_capacity);
     if (stack_ctor_result != ERROR_NO)
         return PROC_ERROR_STACK_OPERATION_FAILED;
 
@@ -223,11 +270,12 @@ void ProcessorDtor(Processor* processor_pointer)
     if (processor_pointer->code_buffer)
         free(processor_pointer->code_buffer);
 
-    StackDtor(&(processor_pointer -> stack));
-    for (int i = 0; i < 8; i++)
-    {
+    StackDtor(&(processor_pointer->stack));
+    StackDtor(&(processor_pointer->return_stack));
+
+    for (int i = 0; i < kNRegisters; i++)
         processor_pointer->registers[i] = 0;
-    }
+
     processor_pointer->instruction_counter = 0;
     processor_pointer->code_buffer         = NULL;
     processor_pointer->code_buffer_size    = 0;
@@ -244,7 +292,9 @@ void ProcDump(const Processor* proc, int errors, const char* msg)
     }
 
     printf("Processor [%p] Dump: %s\n", proc, msg);
-    StackDump(&proc->stack, errors, "Stack in Processor");
+
+    StackDump(&proc->stack,        errors, "Stack in Processor");
+    StackDump(&proc->return_stack, errors, "Return Stack in Processor");
 
     const char* register_names[] = {"RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"};
     for (int i = 0; i < kNRegisters; i++)

@@ -12,7 +12,8 @@
 const int kStartingProcessorCapacity = 100;
 
 typedef struct {
-    Stack stack;
+    Stack stack;        //для данных
+    Stack return_stack; //для адресов функций
     int registers[kNRegisters];
     int instruction_counter;
     int* code_buffer;
