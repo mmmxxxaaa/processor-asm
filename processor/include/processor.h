@@ -10,13 +10,15 @@
 #include "general_const_and_func.h"
 
 const int kStartingProcessorCapacity = 100;
+const int kStartingRAMCapacity = 100;
 
 typedef struct {
-    Stack stack;        //для данных
-    Stack return_stack; //для адресов функций
-    int registers[kNRegisters];
-    int instruction_counter;
-    int* code_buffer;
+    Stack  stack;        //для данных
+    Stack  return_stack; //для адресов функций
+    int*   ptr_RAM;
+    int    registers[kNRegisters];
+    int    instruction_counter;
+    int*   code_buffer;
     size_t code_buffer_size;
 } Processor;
 

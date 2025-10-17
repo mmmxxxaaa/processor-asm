@@ -10,7 +10,8 @@ typedef enum {
     PROC_ERROR_STACK_OPERATION_FAILED  = 1 << 5,
     PROC_ERROR_INVALID_STATE           = 1 << 6,
     PROC_ERROR_INVALID_REGISTER        = 1 << 7,
-    PROC_ERROR_INVALID_JUMP            = 1 << 8
+    PROC_ERROR_INVALID_JUMP            = 1 << 8,
+    PROC_ERROR_RAM_ACCESS              = 1 << 9
 } ProcessorErrorType;
 
 #endif // PROC_ERROR_TYPES_H_

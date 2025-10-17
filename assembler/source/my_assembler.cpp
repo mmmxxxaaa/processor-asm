@@ -34,6 +34,9 @@ OpCodes GetOpCode(const char* command)
     COMPARE_COMMAND(command, CALL);
     COMPARE_COMMAND(command, RET);
 
+    COMPARE_COMMAND(command, PUSHM);
+    COMPARE_COMMAND(command, POPM);
+
     COMPARE_COMMAND(command, PUSHR);
     COMPARE_COMMAND(command, POPR);
 
@@ -59,7 +62,12 @@ const char* GetAsmErrorString(AssemblerErrorType error)
         default:                                return "Unknown error";
     }
 }
-
+//FIXME оперативную память(динамическую)
+//FIXME динамический массив меток
+//FIXME сигнатура + версия + разобраться, как через бинарник передавать размер бинарного файла
+//FIXME заботать термины по типу SPU CPU что такое регистр и так далее
+//FIXME написать дамп структур (проц уже есть, асма нет) и, возможно, верификатор
+//FIXME раскидать кейсы по функциям
 AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход только ради меток
 {
     assert(assembler_pointer);
@@ -118,6 +126,8 @@ int CommandRequiresArgument(OpCodes op)
         case OP_JE:
         case OP_JNE:
         case OP_CALL:
+        case OP_PUSHM:
+        case OP_POPM:
             return 1;
         case OP_ERR:
         case OP_HLT:
@@ -176,9 +186,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
                     SkipAllSpaceSymbols(&buffer_ptr);
                 }
                 else
-                {
                     return ASM_ERROR_EXPECTED_ARGUMENT;
-                }
                 break;
 
             case OP_JMP:
@@ -233,6 +241,43 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
                 assembler_pointer->binary_buffer[binary_index++] = 0;
                 break;
 
+            case OP_PUSHM:
+            case OP_POPM:
+            {
+                SkipAllSpaceSymbols(&buffer_ptr);
+
+                if (*buffer_ptr != '[')
+                    return ASM_ERROR_EXPECTED_ARGUMENT;
+                buffer_ptr++;
+
+                char register_name[kMaxCommandLength] = {};
+                int read_count = sscanf(buffer_ptr, "%31s", register_name);
+
+                if (read_count != 1)
+                    return ASM_ERROR_EXPECTED_REGISTER;
+
+                char* closing_bracket = strchr(buffer_ptr, ']');
+                if (closing_bracket == NULL)
+                    return ASM_ERROR_EXPECTED_ARGUMENT;
+                int reg_name_length = closing_bracket - buffer_ptr;
+                if (reg_name_length >= sizeof(register_name)) //FIXME
+                    return ASM_ERROR_INVALID_REGISTER;
+                strncpy(register_name, buffer_ptr, reg_name_length);
+                register_name[reg_name_length] = '\0'; //FIXME чет я как-то насрал из-за этих скобочек квадратных
+
+
+                RegCodes reg = GetRegisterByName(register_name);
+                if (reg == REG_INVALID)
+                    return ASM_ERROR_INVALID_REGISTER; //мб тут вывести еще регистры, которые пользователь может использовать
+
+                assembler_pointer->binary_buffer[binary_index++] = (int) reg;
+                buffer_ptr = closing_bracket + 1;
+                SkipAllSpaceSymbols(&buffer_ptr);
+                break;
+            }
+//FIXME аргумент попм и пушм -- название регистра в квадратных скобках, как его тут обработать
+//FIXME проверить, как написал обработку попм и пушм в процессоре
+//FIXME нормально ли реализован асм и проц (типа много ли стркмп и можно ли избавиться от свитча в процессоре)
             case OP_HLT:
             case OP_ADD:
             case OP_POP:

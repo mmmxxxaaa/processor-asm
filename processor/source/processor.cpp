@@ -20,6 +20,7 @@ const char* GetProcErrorString(ProcessorErrorType error)
         case PROC_ERROR_INVALID_STATE:           return "Invalid processor state";
         case PROC_ERROR_INVALID_REGISTER:        return "Invalid register";
         case PROC_ERROR_INVALID_JUMP:            return "Invalid jump";
+        case PROC_ERROR_RAM_ACCESS:              return "Invalid access to RAM";
         default:                                 return "Unknown error";
     }
 }
@@ -90,7 +91,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
             {
                 if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0)
                 {
-                    proc_error = PROC_ERROR_INVALID_JUMP; //FIXME
+                    proc_error = PROC_ERROR_INVALID_JUMP;
                     break;
                 }
 
@@ -160,6 +161,49 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
 
                 ElementType value = StackPOP(&processor_pointer->stack);
                 processor_pointer->registers[argument] = value;
+                break;
+            }
+
+            case OP_PUSHM:
+            {
+                if (processor_pointer->ptr_RAM == NULL)
+                {
+                    proc_error = PROC_ERROR_RAM_ACCESS;
+                    break;
+                }
+
+                if (argument < 0 || argument >= kStartingRAMCapacity)
+                {
+                    proc_error = PROC_ERROR_RAM_ACCESS;
+                    break;
+                }
+                ElementType value = processor_pointer->ptr_RAM[argument];
+                StackPUSH(&processor_pointer->stack, value);
+                break;
+            }
+
+            case OP_POPM:
+            {
+                if (processor_pointer->ptr_RAM == NULL)
+                {
+                    proc_error = PROC_ERROR_RAM_ACCESS;
+                    break;
+                }
+
+                if (argument < 0 || argument >= kStartingRAMCapacity)
+                {
+                    proc_error = PROC_ERROR_RAM_ACCESS;
+                    break;
+                }
+
+                if (processor_pointer->stack.size == 0)
+                {
+                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
+                    break;
+                }
+
+                ElementType value = StackPOP(&processor_pointer->stack);
+                processor_pointer->ptr_RAM[argument] = value;
                 break;
             }
 
@@ -252,6 +296,10 @@ ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_c
 
     processor_pointer->instruction_counter = 0;
 
+    processor_pointer->ptr_RAM = (int*) calloc(kStartingRAMCapacity, sizeof(int));
+    if (processor_pointer->ptr_RAM == NULL)
+        return PROC_ERROR_ALLOCATION_FAILED;
+
     processor_pointer->code_buffer         = NULL;
     processor_pointer->code_buffer_size    = 0;
 
@@ -267,6 +315,9 @@ void ProcessorDtor(Processor* processor_pointer)
     if (!processor_pointer)
         return;
 
+    if (processor_pointer->ptr_RAM)
+        free(processor_pointer->ptr_RAM);
+
     if (processor_pointer->code_buffer)
         free(processor_pointer->code_buffer);
 
@@ -277,6 +328,7 @@ void ProcessorDtor(Processor* processor_pointer)
         processor_pointer->registers[i] = 0;
 
     processor_pointer->instruction_counter = 0;
+    processor_pointer->ptr_RAM             = NULL;
     processor_pointer->code_buffer         = NULL;
     processor_pointer->code_buffer_size    = 0;
 }
@@ -300,6 +352,8 @@ void ProcDump(const Processor* proc, int errors, const char* msg)
     for (int i = 0; i < kNRegisters; i++)
         printf("%s: %d\n", register_names[i], proc->registers[i]);
 
+    printf("Pointer to RAM:      %p\n",  proc->ptr_RAM);
+    //FIXME написать вывод массива оперативной памяти в Дампе
     printf("Instruction counter: %d\n",  proc->instruction_counter);
     printf("Code buffer size:    %lu\n", proc->code_buffer_size);
     printf("Code buffer address: %p\n",  proc->code_buffer);

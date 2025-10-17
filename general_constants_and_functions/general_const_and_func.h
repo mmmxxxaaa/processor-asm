@@ -23,8 +23,12 @@ typedef enum {
     OP_JAE    = 14,
     OP_JE     = 15,
     OP_JNE    = 16,
+
     OP_CALL   = 17,
     OP_RET    = 18,
+
+    OP_PUSHM  = 19,
+    OP_POPM   = 20,
 
     OP_PUSHR  = 33,
     OP_POPR   = 34,
