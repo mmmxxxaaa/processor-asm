@@ -1,6 +1,15 @@
 #ifndef GENERAL_CONST_AND_FUNC_H_
 #define GENERAL_CONST_AND_FUNC_H_
 
+#include <stdio.h>
+
+#define FREE_AND_NULL(ptr)      \
+    do {                        \
+        free(ptr);              \
+        (ptr) = NULL;           \
+    } while(0)
+
+//СИГМА СКИБИДИ (), чтобы можно было передавать struct_ptr+1
 static const int kNRegisters = 8;
 
 typedef enum {
@@ -33,5 +42,8 @@ typedef enum {
     OP_PUSHR  = 33,
     OP_POPR   = 34,
 } OpCodes;
+
+long int GetFileSize(FILE* file);
+
 
 #endif // GENERAL_CONST_AND_FUNC_H_

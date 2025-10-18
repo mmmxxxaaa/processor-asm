@@ -1,5 +1,5 @@
-PUSH 6
-CALL :factorial
+IN
+CALL factorial
 OUT
 HLT
 
@@ -7,13 +7,13 @@ HLT
 POPR RAX
 PUSHR RAX
 PUSH 1
-JE :base_case
+JE base_case
 
 PUSHR RAX
 PUSHR RAX
 PUSH 1
 SUB
-CALL :factorial
+CALL factorial
 
 MUL
 RET

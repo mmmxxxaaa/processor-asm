@@ -3,47 +3,33 @@
 
 #include "my_assembler.h"
 
+#define ERROR_HANDLER(func_call, message)                       \
+    do {                                                        \
+        error = func_call;                                      \
+        if (error != ASM_ERROR_NO) {                            \
+            fprintf(stderr, message, GetAsmErrorString(error)); \
+            AssemblerDtor(&asm_struct);                         \
+            return 1;                                           \
+        }                                                       \
+    } while(0)
+
 int main(int argc, const char** argv)
 {
     if (argc != 3)
     {
-        fprintf(stderr, "Error opening files in %s\n", argv[0]);
+        fprintf(stderr, "Error in %s. You should enter one filename: name of binary file. \n", argv[0]);
         return 1;
     }
     const char* instruction_filename = argv[1];
     const char* binary_filename = argv[2];
-
-    if (instruction_filename == NULL || binary_filename == NULL)
-    {
-        fprintf(stderr, "Error: Memory allocation failed\n");
-        return 1;
-    }
+    AssemblerErrorType error = ASM_ERROR_NO;
 
     Assembler asm_struct = {};
-    AssemblerErrorType error = AssemblerCtor(&asm_struct, instruction_filename, binary_filename);
-    if (error != ASM_ERROR_NO)
-    {
-        fprintf(stderr, "Assembly error: %s\n", GetAsmErrorString(error));
-        AssemblerDtor(&asm_struct);
-        return 1;
-    }
+    ERROR_HANDLER(AssemblerCtor(&asm_struct, instruction_filename, binary_filename), "Assembly error: %s\n");
 
-    error = FirstPass(&asm_struct);
-    if (error != ASM_ERROR_NO)
-    {
-        printf("First passing failed: %s\n", GetAsmErrorString(error));
-        AssemblerDtor(&asm_struct);
-        return 1;
-    }
+    ERROR_HANDLER(FirstPass(&asm_struct), "First passing failed: %s\n");
 
-//FIXME - #define ERROR_HANDLER(SecondPass(&asm_struct))
-    error = SecondPass(&asm_struct);
-    if (error != ASM_ERROR_NO)
-    {
-        printf("Second passing failed: %s\n", GetAsmErrorString(error));
-        AssemblerDtor(&asm_struct);
-        return 1;
-    }
+    ERROR_HANDLER(SecondPass(&asm_struct), "Second passing failed: %s\n");
 
     AssemblerDtor(&asm_struct);
     return 0;

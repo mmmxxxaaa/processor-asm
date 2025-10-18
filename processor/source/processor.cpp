@@ -2,7 +2,7 @@
 
 #include <assert.h>
 #include <string.h>
-
+#include <stdbool.h>
 #include "stack.h"
 #include "operations.h"
 #include "proc_error_types.h"
@@ -25,7 +25,7 @@ const char* GetProcErrorString(ProcessorErrorType error)
     }
 }
 
-ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сигнатуру + версию добавить
+ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 {
     assert(processor_pointer);
     assert(processor_pointer->code_buffer);
@@ -45,7 +45,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
         op_code  = processor_pointer->code_buffer[current_instruction_counter];
         argument = processor_pointer->code_buffer[current_instruction_counter + 1];
 
-        int should_increment_instruction_pointer = 1;
+        bool should_increment_instruction_pointer = true;
 
         switch (op_code)
         {
@@ -66,7 +66,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                 stack_error = StackPUSH(&processor_pointer->stack, value);
                 break;
             }
-                                                        //ДЕЛО СДЕЛАНО (поправил) у меня проблема с ХАЛЬТОМ, он должен быть только последней строчкой, что странно
+
             case OP_JMP:
             {
                 if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
@@ -75,7 +75,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                     break;
                 }
                 processor_pointer->instruction_counter = argument;
-                should_increment_instruction_pointer = 0;
+                should_increment_instruction_pointer = false;
 
                 break;
             }
@@ -106,7 +106,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                 }
 
                 processor_pointer->instruction_counter = argument;
-                should_increment_instruction_pointer = 0;
+                should_increment_instruction_pointer = false;
                 break;
             }
 
@@ -127,7 +127,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                 }
 
                 processor_pointer->instruction_counter = return_address;
-                should_increment_instruction_pointer = 0;
+                should_increment_instruction_pointer = false;
                 break;
             }
 
@@ -172,7 +172,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                     break;
                 }
 
-                if (argument < 0 || argument >= kStartingRAMCapacity)
+                if (argument < 0 || argument >= kRAMCapacity)
                 {
                     proc_error = PROC_ERROR_RAM_ACCESS;
                     break;
@@ -190,7 +190,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer) //FIXME сиг
                     break;
                 }
 
-                if (argument < 0 || argument >= kStartingRAMCapacity)
+                if (argument < 0 || argument >= kRAMCapacity)
                 {
                     proc_error = PROC_ERROR_RAM_ACCESS;
                     break;
@@ -249,7 +249,7 @@ ProcessorErrorType ReadBinaryFileToBuffer(Processor* processor_pointer, const ch
     if (binary_file == NULL)
         return PROC_ERROR_CANNOT_OPEN_BINARY_FILE;
 
-    processor_pointer->code_buffer_size = GetSizeOfBinaryFile(binary_file);
+    processor_pointer->code_buffer_size = GetFileSize(binary_file);
     if (processor_pointer->code_buffer_size <= 0)
     {
         fclose(binary_file);
@@ -269,8 +269,7 @@ ProcessorErrorType ReadBinaryFileToBuffer(Processor* processor_pointer, const ch
 
     if (elements_read != total_ints)
     {
-        free(processor_pointer->code_buffer);
-        processor_pointer->code_buffer = NULL;
+        FREE_AND_NULL(processor_pointer->code_buffer);
         return PROC_ERROR_READING_FILE;
     }
 
@@ -291,12 +290,12 @@ ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_c
     if (stack_ctor_result != ERROR_NO)
         return PROC_ERROR_STACK_OPERATION_FAILED;
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < kNRegisters; i++)
         processor_pointer->registers[i] = 0;
 
     processor_pointer->instruction_counter = 0;
 
-    processor_pointer->ptr_RAM = (int*) calloc(kStartingRAMCapacity, sizeof(int));
+    processor_pointer->ptr_RAM = (int*) calloc(kRAMCapacity, sizeof(int));
     if (processor_pointer->ptr_RAM == NULL)
         return PROC_ERROR_ALLOCATION_FAILED;
 
@@ -316,10 +315,10 @@ void ProcessorDtor(Processor* processor_pointer)
         return;
 
     if (processor_pointer->ptr_RAM)
-        free(processor_pointer->ptr_RAM);
+        FREE_AND_NULL(processor_pointer->ptr_RAM);
 
     if (processor_pointer->code_buffer)
-        free(processor_pointer->code_buffer);
+        FREE_AND_NULL(processor_pointer->code_buffer);
 
     StackDtor(&(processor_pointer->stack));
     StackDtor(&(processor_pointer->return_stack));
@@ -328,8 +327,6 @@ void ProcessorDtor(Processor* processor_pointer)
         processor_pointer->registers[i] = 0;
 
     processor_pointer->instruction_counter = 0;
-    processor_pointer->ptr_RAM             = NULL;
-    processor_pointer->code_buffer         = NULL;
     processor_pointer->code_buffer_size    = 0;
 }
 
@@ -357,17 +354,6 @@ void ProcDump(const Processor* proc, int errors, const char* msg)
     printf("Instruction counter: %d\n",  proc->instruction_counter);
     printf("Code buffer size:    %lu\n", proc->code_buffer_size);
     printf("Code buffer address: %p\n",  proc->code_buffer);
-}
-
-long int GetSizeOfBinaryFile(FILE* binary_file)
-{
-    if (!binary_file)
-        return -1;
-
-    fseek(binary_file, 0L, SEEK_END);
-    long int size = ftell(binary_file);
-    rewind(binary_file);
-    return size;
 }
 
 BODY_JUMP_FUNC_GENERATION_WITH_RETURNING_PROC_ERROR_TYPE(JB,  <)

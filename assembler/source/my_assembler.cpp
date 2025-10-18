@@ -8,6 +8,8 @@
 
 #include "asm_error_types.h"
 
+#define COMPARE_COMMAND(cmd, name) if (strcmp(command, #name) == 0) return OP_##name
+
 OpCodes GetOpCode(const char* command)
 {
     assert(command != NULL);
@@ -62,9 +64,6 @@ const char* GetAsmErrorString(AssemblerErrorType error)
         default:                                return "Unknown error";
     }
 }
-//FIXME оперативную память(динамическую)
-//FIXME динамический массив меток
-//FIXME сигнатура + версия + разобраться, как через бинарник передавать размер бинарного файла
 //FIXME заботать термины по типу SPU CPU что такое регистр и так далее
 //FIXME написать дамп структур (проц уже есть, асма нет) и, возможно, верификатор
 //FIXME раскидать кейсы по функциям
@@ -76,15 +75,17 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
     int current_address = 0;
     char* buffer_ptr = assembler_pointer->instructions_buffer;
 
+    assert(kMaxCommandLength == 32);
+
     while (sscanf(buffer_ptr, "%31s", token) == 1)
     {
         buffer_ptr += strlen(token);
 
-        SkipAllSpaceSymbols(&buffer_ptr);
+        buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
 
         if (token[0] == kLabelIdSymbol)
         {
-            if (AddLabel(&assembler_pointer->label_table, token, current_address)) // Сохраняем метку БЕЗ символа ':' //FIXME нужно ли +1 к токену //типа в JE metka пишем без двоеточия, а в уже самой метке :metka
+            if (AddLabel(&assembler_pointer->label_table, token + 1, current_address))
                 return ASM_ERROR_LABEL_TABLE;
 
             continue;  // ВАЖНО!!!!!!! пропускаем увеличение адреса для меток
@@ -101,18 +102,24 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
         if (CommandRequiresArgument(operation_code))
         {
             char next_token[kMaxCommandLength] = {};
+
+            assert(kMaxCommandLength == 32);
+
             if (sscanf(buffer_ptr, "%31s", next_token) == 1)
             {
                 buffer_ptr += strlen(next_token);
-                SkipAllSpaceSymbols(&buffer_ptr);
+                buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
             }
+            else
+                return ASM_ERROR_EXPECTED_ARGUMENT;
         }
     }
+
     assembler_pointer->size_of_binary_file = current_address;
     return ASM_ERROR_NO;
 }
 
-int CommandRequiresArgument(OpCodes op)
+bool CommandRequiresArgument(OpCodes op)
 {
     switch (op) {
         case OP_PUSH:
@@ -128,7 +135,7 @@ int CommandRequiresArgument(OpCodes op)
         case OP_CALL:
         case OP_PUSHM:
         case OP_POPM:
-            return 1;
+            return true;
         case OP_ERR:
         case OP_HLT:
         case OP_POP:
@@ -141,7 +148,7 @@ int CommandRequiresArgument(OpCodes op)
         case OP_IN:
         case OP_RET:
         default:
-            return 0;
+            return false;
     }
 }
 
@@ -157,13 +164,15 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
     char* buffer_ptr = assembler_pointer->instructions_buffer;
     OpCodes operation_code = OP_ERR;
 
+    assert(kMaxCommandLength == 32);
+
     while (sscanf(buffer_ptr, "%31s", token) == 1)
     {
         buffer_ptr += strlen(token);
 
-        SkipAllSpaceSymbols(&buffer_ptr);
+        buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
 
-        if (token[0] == kLabelIdSymbol)
+        if (token[0] == kLabelIdSymbol) //проверку можно в отедельную функцию (мб через strchr, чтобы искать двоеточие в конце)
             continue;
 
         operation_code = GetOpCode(token);
@@ -175,19 +184,16 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
         switch(operation_code)
         {
             case OP_PUSH:
-                if (sscanf(buffer_ptr, "%d", &argument) == 1) //фигурные скобки нужны, чтобы создать переменную внутри кейса
-                {
-                    assembler_pointer->binary_buffer[binary_index++] = argument; // записываем аргумент в бинарный буфер
-
-                    // FIXME - Вместо сдвига на размер числа strchr('\n')
-                    char arg_buffer[32] = {0}; //создаем временный буфер для строкового представления числа
-                    sprintf(arg_buffer, "%d", argument); //преобразуем число обратно в строку с помощью sprintf
-                    buffer_ptr += strlen(arg_buffer); //сдвигаем указатель в буфере инструкций на длину этой строки
-                    SkipAllSpaceSymbols(&buffer_ptr);
-                }
-                else
+            {
+                int chars_read = 0;
+                if (sscanf(buffer_ptr, "%d%n", &argument, &chars_read) != 1)
                     return ASM_ERROR_EXPECTED_ARGUMENT;
+
+                assembler_pointer->binary_buffer[binary_index++] = argument;
+                buffer_ptr += chars_read; //сдвигаем указатель в буфере инструкций на длину этой строки
+                buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
                 break;
+            }
 
             case OP_JMP:
             case OP_JB:
@@ -199,6 +205,9 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
             case OP_CALL:
                 {
                     char label_name[kMaxLabelLength] = {0};
+
+                    assert(kMaxCommandLength == 32);
+
                     if (sscanf(buffer_ptr, "%31s", label_name) == 1)
                     {
                         int label_address = FindLabel(&assembler_pointer->label_table, label_name);
@@ -207,21 +216,26 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
 
                         assembler_pointer->binary_buffer[binary_index++] = label_address;
                         buffer_ptr += strlen(label_name);
-                        SkipAllSpaceSymbols(&buffer_ptr);
+                        buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
                     }
                     else
                         return ASM_ERROR_EXPECTED_ARGUMENT;
 
-                break;
+                    break;
                 }
-
+            case OP_RET:
+                assembler_pointer->binary_buffer[binary_index++] = 0;
+                break;
 
             case OP_POPR:
             case OP_PUSHR:
                 {
-                    SkipAllSpaceSymbols(&buffer_ptr);
+                    buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
 
                     char register_name[kMaxCommandLength] = {};
+
+                    assert(kMaxCommandLength == 32);
+
                     int read_count = sscanf(buffer_ptr, "%31s", register_name);
 
                     if (read_count != 1)
@@ -233,24 +247,23 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
 
                     assembler_pointer->binary_buffer[binary_index++] = (int) reg;
                     buffer_ptr += strlen(register_name);
-                    SkipAllSpaceSymbols(&buffer_ptr);
+                    buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
                     break;
                 }
-
-            case OP_RET:
-                assembler_pointer->binary_buffer[binary_index++] = 0;
-                break;
 
             case OP_PUSHM:
             case OP_POPM:
             {
-                SkipAllSpaceSymbols(&buffer_ptr);
+                buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
 
                 if (*buffer_ptr != '[')
                     return ASM_ERROR_EXPECTED_ARGUMENT;
                 buffer_ptr++;
 
                 char register_name[kMaxCommandLength] = {};
+
+                assert(kMaxCommandLength == 32);
+
                 int read_count = sscanf(buffer_ptr, "%31s", register_name);
 
                 if (read_count != 1)
@@ -259,12 +272,11 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
                 char* closing_bracket = strchr(buffer_ptr, ']');
                 if (closing_bracket == NULL)
                     return ASM_ERROR_EXPECTED_ARGUMENT;
+
                 int reg_name_length = closing_bracket - buffer_ptr;
-                if (reg_name_length >= sizeof(register_name)) //FIXME
+                if (reg_name_length >= sizeof(register_name))
                     return ASM_ERROR_INVALID_REGISTER;
                 strncpy(register_name, buffer_ptr, reg_name_length);
-                register_name[reg_name_length] = '\0'; //FIXME чет я как-то насрал из-за этих скобочек квадратных
-
 
                 RegCodes reg = GetRegisterByName(register_name);
                 if (reg == REG_INVALID)
@@ -272,12 +284,10 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
 
                 assembler_pointer->binary_buffer[binary_index++] = (int) reg;
                 buffer_ptr = closing_bracket + 1;
-                SkipAllSpaceSymbols(&buffer_ptr);
+                buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
                 break;
             }
-//FIXME аргумент попм и пушм -- название регистра в квадратных скобках, как его тут обработать
-//FIXME проверить, как написал обработку попм и пушм в процессоре
-//FIXME нормально ли реализован асм и проц (типа много ли стркмп и можно ли избавиться от свитча в процессоре)
+
             case OP_HLT:
             case OP_ADD:
             case OP_POP:
@@ -296,27 +306,37 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
         }
 
         commands_processed++;
-        // if (operation_code == OP_HLT) //FIXME иначе останавливается, как только встретит первый HLT
-        //     break;
     }
-    fwrite(assembler_pointer->binary_buffer, sizeof(int), binary_index, assembler_pointer->binary_file);
+    AssemblerErrorType error = WriteBinaryBufferToBinaryFile(assembler_pointer, binary_index);
+    if (error != ASM_ERROR_NO)
+        return error;
 
-// FIXME - logger
     printf("Processed %d commands\n", commands_processed);
     return ASM_ERROR_NO;
 
 }
 
-AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, const char* input_filename)
+AssemblerErrorType WriteBinaryBufferToBinaryFile(Assembler* assembler_pointer, int number_of_ints)
+{
+    assert(assembler_pointer);
+    assert(number_of_ints >= 0);
+
+    if (!assembler_pointer->binary_file)
+        return ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE;
+
+    fwrite(assembler_pointer->binary_buffer, sizeof(assembler_pointer->binary_buffer[0]), number_of_ints, assembler_pointer->binary_file);
+
+    return ASM_ERROR_NO;
+}
+
+AssemblerErrorType GetInstructionFileFileAndReadItToBuffer(Assembler* assembler_pointer, const char* input_filename)
 {
     assert(assembler_pointer);
     assert(input_filename);
 
     FILE* instruction_file = GetInputFile(input_filename);
     if (!instruction_file)
-    {
         return ASM_ERROR_CANNOT_OPEN_INPUT_FILE;
-    }
 
     long file_size = GetFileSize(instruction_file);
     if (file_size < 0)
@@ -325,19 +345,20 @@ AssemblerErrorType ReadInstructionFileToBuffer(Assembler* assembler_pointer, con
         return ASM_ERROR_READING_FILE;
     }
 
-    assembler_pointer->instructions_buffer = (char*)calloc(file_size + 1, sizeof(char)); //+1, чтобы \0 поместился
+    assembler_pointer->inst_buffer_size = file_size + sizeof('\0');
+    assembler_pointer->instructions_buffer = (char*)calloc(assembler_pointer->inst_buffer_size, sizeof(char));
     if (!assembler_pointer->instructions_buffer)
     {
         fclose(instruction_file);
         return ASM_ERROR_ALLOCATION_FAILED;
     }
 
-    size_t bytes_read = fread(assembler_pointer->instructions_buffer, 1, file_size, instruction_file);
+    size_t bytes_read = fread(assembler_pointer->instructions_buffer, sizeof(char), file_size, instruction_file);
     if (bytes_read != (size_t)file_size)
     {
         fclose(instruction_file);
-        free(assembler_pointer->instructions_buffer);
-        assembler_pointer->instructions_buffer = NULL;
+        FREE_AND_NULL(assembler_pointer->instructions_buffer);
+
         return ASM_ERROR_READING_FILE;
     }
 
@@ -360,7 +381,7 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
     if (!assembler_pointer -> binary_file)
         return ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE;
 
-    AssemblerErrorType error = ReadInstructionFileToBuffer(assembler_pointer, input_filename);
+    AssemblerErrorType error = GetInstructionFileFileAndReadItToBuffer(assembler_pointer, input_filename);
     if (error != ASM_ERROR_NO)
     {
         fclose(assembler_pointer->binary_file);
@@ -368,22 +389,19 @@ AssemblerErrorType AssemblerCtor(Assembler* assembler_pointer, const char* input
         return error;
     }
 
-    size_t max_possible_commands = strlen(assembler_pointer->instructions_buffer) / 2 + 1; //оценка
+    size_t max_possible_commands = assembler_pointer->inst_buffer_size / 2 + 1;
     assembler_pointer->binary_buffer = (int*)calloc(max_possible_commands, sizeof(int));
     if (!assembler_pointer->binary_buffer)
     {
-        free(assembler_pointer->instructions_buffer);
-        assembler_pointer->instructions_buffer = NULL;
+        FREE_AND_NULL(assembler_pointer->instructions_buffer);
 
         fclose(assembler_pointer->binary_file);
         assembler_pointer->binary_file = NULL;
         return ASM_ERROR_ALLOCATION_FAILED;
     }
 
+    assembler_pointer->label_table.labels = (Label*) calloc(kMaxNOfLabels, sizeof(Label));
     InitLabelTable(&assembler_pointer->label_table);
-
-    if (!assembler_pointer->instruction_filename || !assembler_pointer->binary_filename)
-        return ASM_ERROR_ALLOCATION_FAILED;
 
     return ASM_ERROR_NO;
 }
@@ -393,20 +411,16 @@ void AssemblerDtor(Assembler* assembler_pointer)
     if (!assembler_pointer)
         return;
 
-    // Освобождаем только если указатели не NULL
-    if (assembler_pointer->instructions_buffer)
-        free(assembler_pointer->instructions_buffer);
-
-    if (assembler_pointer->binary_buffer)
-        free(assembler_pointer->binary_buffer);
+    FREE_AND_NULL(assembler_pointer->instructions_buffer);
+    FREE_AND_NULL(assembler_pointer->binary_buffer);
+    FREE_AND_NULL(assembler_pointer->label_table.labels);
 
     if (assembler_pointer->binary_file)
         fclose(assembler_pointer->binary_file);
 
+    assembler_pointer->inst_buffer_size = 0;
     assembler_pointer->instruction_filename = NULL;
     assembler_pointer->binary_filename = NULL;
-    assembler_pointer->instructions_buffer = NULL;
-    assembler_pointer->binary_buffer = NULL;
     assembler_pointer->binary_file = NULL;
 }
 
@@ -417,7 +431,7 @@ FILE* GetInputFile(const char* instruction_file_path)
     FILE* instruction_file = fopen(instruction_file_path, "r");
     if (instruction_file == NULL)
     {
-        printf("Error: Cannot open input file %s\n", instruction_file_path);
+        fprintf(stderr, "Error: Cannot open input file %s\n", instruction_file_path);
         return NULL;
     }
     return instruction_file;
@@ -430,30 +444,19 @@ FILE* GetOutputFile(const char* binary_file_path)
     FILE* binary_file = fopen(binary_file_path, "wb");
     if (binary_file == NULL)
     {
-        printf("Error: Cannot open input file %s\n", binary_file_path);
+        fprintf(stderr, "Error: Cannot open output file %s\n", binary_file_path);
         return NULL;
     }
     return binary_file;
-}
-
-long int GetFileSize(FILE* file)
-{
-    if (!file) return -1;
-
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    return file_size;
 }
 
 RegCodes GetRegisterByName(const char* name)
 {
     assert(name);
 
-    const char* register_names[] = {
-        "RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"
-    };
+    const char* register_names[] = {"RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"};
+
+    assert(sizeof(register_names) / sizeof(register_names[0]) == kNRegisters);
 
     for (int i = 0; i < kNRegisters; i++)
     {
@@ -470,11 +473,10 @@ void InitLabelTable(LabelTable* ptr_table)
 
     ptr_table->number_of_labels = 0;
     for (int index_of_label = 0; index_of_label < kMaxNOfLabels; index_of_label++)
-        for (int index_of_char_in_name = 0; index_of_char_in_name < kMaxLabelLength; index_of_char_in_name++)
-        {
-            ptr_table->labels[index_of_label].name[index_of_char_in_name] = '\0';
-            ptr_table->labels[index_of_label].address = -1;
-        }
+    {
+        ptr_table->labels[index_of_label].name[0] = '\0';
+        ptr_table->labels[index_of_label].address = -1;
+    }
 }
 
 int FindLabel(LabelTable* ptr_table, const char* name_of_label)
@@ -502,15 +504,16 @@ AssemblerErrorType AddLabel(LabelTable* ptr_table, const char* name_of_label, in
         return ASM_ERROR_REDEFINITION_LABEL;
 
     strncpy(ptr_table->labels[ptr_table->number_of_labels].name, name_of_label, kMaxLabelLength - 1);
-    ptr_table->labels[ptr_table->number_of_labels].name[kMaxLabelLength - 1] = '\0';
     ptr_table->labels[ptr_table->number_of_labels].address = address;
     ptr_table->number_of_labels++;
 
     return ASM_ERROR_NO;
 }
 
-void SkipAllSpaceSymbols(char** ptr_to_buffer_ptr)
+char* SkipAllSpaceSymbols(char* buffer_ptr)
 {
-    while (isspace(**ptr_to_buffer_ptr))
-        (*ptr_to_buffer_ptr)++; //FIXME скобки обязательно
+    while (isspace(*buffer_ptr))
+        buffer_ptr++;
+
+    return buffer_ptr;
 }
