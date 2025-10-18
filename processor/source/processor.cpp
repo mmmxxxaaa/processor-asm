@@ -221,7 +221,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 break;
             }
 
-            case OP_DRAW: //FIXME
+            case OP_DRAW:
             {
                 for (int i = 0; i < kRAMCapacity; i++)
                 {
@@ -374,9 +374,27 @@ void ProcDump(const Processor* proc, int errors, const char* msg)
     const char* register_names[] = {"RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"};
     for (int i = 0; i < kNRegisters; i++)
         printf("%s: %d\n", register_names[i], proc->registers[i]);
-
     printf("Pointer to RAM:      %p\n",  proc->ptr_RAM);
-    //FIXME написать вывод массива оперативной памяти в Дампе
+    if (proc->ptr_RAM == NULL)
+        printf("RAM is was not allocated\n");
+    else
+    {
+        printf("RAM has %d cells\n", kRAMCapacity);
+
+        int cells_per_line = 20;
+        for (int i = 0; i < kRAMCapacity; i++)
+        {
+            printf("%4d", proc->ptr_RAM[i]);
+
+            if ((i+1) % cells_per_line == 0)
+                printf("\n");
+            else
+                printf(" ");
+        }
+        if (kRAMCapacity % cells_per_line != 0) //Если последняя строка неполная
+            printf("\n");
+    }
+
     printf("Instruction counter: %d\n",  proc->instruction_counter);
     printf("Code buffer size:    %lu\n", proc->code_buffer_size);
     printf("Code buffer address: %p\n",  proc->code_buffer);

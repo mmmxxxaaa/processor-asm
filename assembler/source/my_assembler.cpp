@@ -65,9 +65,7 @@ const char* GetAsmErrorString(AssemblerErrorType error)
         default:                                return "Unknown error";
     }
 }
-//FIXME заботать термины по типу SPU CPU что такое регистр и так далее
-//FIXME написать дамп структур (проц уже есть, асма нет) и, возможно, верификатор
-//FIXME раскидать кейсы по функциям
+
 AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход только ради меток
 {
     assert(assembler_pointer);

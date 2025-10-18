@@ -9,7 +9,6 @@
         (ptr) = NULL;           \
     } while(0)
 
-//СИГМА СКИБИДИ (), чтобы можно было передавать struct_ptr+1
 static const int kNRegisters = 8;
 
 typedef enum {
