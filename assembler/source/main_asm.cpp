@@ -17,7 +17,7 @@ int main(int argc, const char** argv)
 {
     if (argc != 3)
     {
-        fprintf(stderr, "Error in %s. You should enter one filename: name of binary file. \n", argv[0]);
+        fprintf(stderr, "Error in %s. You should enter two filenames: name of instuction file and binary file. \n", argv[0]);
         return 1;
     }
     const char* instruction_filename = argv[1];

@@ -38,6 +38,7 @@ typedef enum {
 
     OP_PUSHM  = 19,
     OP_POPM   = 20,
+    OP_DRAW   = 21,
 
     OP_PUSHR  = 33,
     OP_POPR   = 34,

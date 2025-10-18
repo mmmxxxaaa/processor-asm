@@ -172,12 +172,19 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
 
-                if (argument < 0 || argument >= kRAMCapacity)
+                if (argument < 0 || argument >= kNRegisters)
                 {
                     proc_error = PROC_ERROR_RAM_ACCESS;
                     break;
                 }
-                ElementType value = processor_pointer->ptr_RAM[argument];
+
+                int address = processor_pointer->registers[argument];
+                if (address < 0 || address >= kRAMCapacity)
+                {
+                    proc_error = PROC_ERROR_RAM_ACCESS;
+                    break;
+                }
+                ElementType value = processor_pointer->ptr_RAM[address];
                 StackPUSH(&processor_pointer->stack, value);
                 break;
             }
@@ -190,7 +197,14 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                     break;
                 }
 
-                if (argument < 0 || argument >= kRAMCapacity)
+                if (argument < 0 || argument >= kNRegisters)
+                {
+                    proc_error = PROC_ERROR_RAM_ACCESS;
+                    break;
+                }
+
+                int address = processor_pointer->registers[argument];
+                if (address < 0 || address >= kRAMCapacity)
                 {
                     proc_error = PROC_ERROR_RAM_ACCESS;
                     break;
@@ -203,7 +217,19 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 }
 
                 ElementType value = StackPOP(&processor_pointer->stack);
-                processor_pointer->ptr_RAM[argument] = value;
+                processor_pointer->ptr_RAM[address] = value;
+                break;
+            }
+
+            case OP_DRAW: //FIXME
+            {
+                for (int i = 0; i < kRAMCapacity; i++)
+                {
+                    printf("%c", processor_pointer->ptr_RAM[i] ? '#' : ' ');
+                    if (i % kSquareSideLength == 0)
+                        printf("\n");
+                }
+                printf("\n");
                 break;
             }
 

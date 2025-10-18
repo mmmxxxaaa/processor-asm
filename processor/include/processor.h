@@ -11,7 +11,8 @@
 #include "general_const_and_func.h"
 
 const int kStartingProcessorCapacity = 100;
-const int kRAMCapacity = 100;
+const int kRAMCapacity = 400;
+const int kSquareSideLength = 20;
 
 typedef struct {
     Stack  stack;        //для данных

@@ -38,6 +38,7 @@ OpCodes GetOpCode(const char* command)
 
     COMPARE_COMMAND(command, PUSHM);
     COMPARE_COMMAND(command, POPM);
+    COMPARE_COMMAND(command, DRAW);
 
     COMPARE_COMMAND(command, PUSHR);
     COMPARE_COMMAND(command, POPR);
@@ -147,6 +148,7 @@ bool CommandRequiresArgument(OpCodes op)
         case OP_OUT:
         case OP_IN:
         case OP_RET:
+        case OP_DRAW:
         default:
             return false;
     }
@@ -260,22 +262,15 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
                     return ASM_ERROR_EXPECTED_ARGUMENT;
                 buffer_ptr++;
 
-                char register_name[kMaxCommandLength] = {};
-
-                assert(kMaxCommandLength == 32);
-
-                int read_count = sscanf(buffer_ptr, "%31s", register_name);
-
-                if (read_count != 1)
-                    return ASM_ERROR_EXPECTED_REGISTER;
-
                 char* closing_bracket = strchr(buffer_ptr, ']');
                 if (closing_bracket == NULL)
                     return ASM_ERROR_EXPECTED_ARGUMENT;
 
+                char register_name[kMaxCommandLength] = {};
                 int reg_name_length = closing_bracket - buffer_ptr;
                 if (reg_name_length >= sizeof(register_name))
                     return ASM_ERROR_INVALID_REGISTER;
+
                 strncpy(register_name, buffer_ptr, reg_name_length);
 
                 RegCodes reg = GetRegisterByName(register_name);
@@ -297,6 +292,7 @@ AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот прох�
             case OP_SQRT:
             case OP_OUT:
             case OP_IN:
+            case OP_DRAW:
                 assembler_pointer->binary_buffer[binary_index++] = 0;
                 break;
 

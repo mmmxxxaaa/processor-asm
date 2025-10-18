@@ -1,0 +1,79 @@
+CALL main
+HLT
+
+:check_point
+    PUSHR RCX
+    PUSH 10
+    SUB
+    POPR REX
+
+
+    PUSHR RDX
+    PUSH 10
+    SUB
+    POPR RFX
+
+    PUSHR REX
+    PUSHR REX
+    MUL
+    POPR RGX
+
+    PUSHR RFX
+    PUSHR RFX
+    MUL
+    POPR RHX
+
+    PUSHR RGX
+    PUSHR RHX
+    ADD
+    POPR REX
+
+    PUSHR REX
+    PUSH 64
+    JBE set_pixel_at_xy
+
+    RET
+
+:set_pixel_at_xy
+    PUSHR RDX
+    PUSH 20
+    MUL
+    PUSHR RCX
+    ADD
+    POPR REX
+
+    PUSH 1
+    POPM [REX]
+    RET
+
+:main
+    PUSH 0
+    POPR RDX
+
+    :y_loop
+    PUSH 0
+    POPR RCX
+
+    :x_loop
+    CALL check_point
+
+    PUSHR RCX
+    PUSH 1
+    ADD
+    POPR RCX
+
+    PUSHR RCX
+    PUSH 20
+    JB x_loop
+
+    PUSHR RDX
+    PUSH 1
+    ADD
+    POPR RDX
+
+    PUSHR RDX
+    PUSH 20
+    JB y_loop
+
+    DRAW
+    RET
