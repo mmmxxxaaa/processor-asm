@@ -7,7 +7,6 @@ HLT
     SUB
     POPR REX
 
-
     PUSHR RDX
     PUSH 10
     SUB
@@ -29,7 +28,7 @@ HLT
     POPR REX
 
     PUSHR REX
-    PUSH 64
+    PUSHR RAX
     JBE set_pixel_at_xy
 
     RET
@@ -47,6 +46,12 @@ HLT
     RET
 
 :main
+    IN
+    POPR RAX
+    PUSHR RAX
+    PUSHR RAX
+    MUL
+    POPR RAX
     PUSH 0
     POPR RDX
 

@@ -1,4 +1,8 @@
 #include "processor.h"
+//массив структур с командами
+// добавить в каждую указатель на функцию, которая будет вып в процессоре
+// при этом надо чтобы структура с командой имеющая номер n лежала бы в массиве на номере n
+// тогда возможно заменить свитч индексированием к этому массиву
 
 #include <assert.h>
 #include <string.h>
@@ -225,7 +229,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
             {
                 for (int i = 0; i < kRAMCapacity; i++)
                 {
-                    printf("%c", processor_pointer->ptr_RAM[i] ? '#' : ' ');
+                    printf("%c", processor_pointer->ptr_RAM[i] ? '#' : '.');
                     if (i % kSquareSideLength == 0)
                         printf("\n");
                 }
@@ -374,24 +378,24 @@ void ProcDump(const Processor* proc, int errors, const char* msg)
     const char* register_names[] = {"RAX", "RBX", "RCX", "RDX", "REX", "RFX", "RGX", "RHX"};
     for (int i = 0; i < kNRegisters; i++)
         printf("%s: %d\n", register_names[i], proc->registers[i]);
-    printf("Pointer to RAM:      %p\n",  proc->ptr_RAM);
+
+    printf("Pointer to RAM:      %p\n", proc->ptr_RAM);
     if (proc->ptr_RAM == NULL)
         printf("RAM is was not allocated\n");
     else
     {
         printf("RAM has %d cells\n", kRAMCapacity);
 
-        int cells_per_line = 20;
         for (int i = 0; i < kRAMCapacity; i++)
         {
             printf("%4d", proc->ptr_RAM[i]);
 
-            if ((i+1) % cells_per_line == 0)
+            if ((i+1) % kCellsPerLine == 0)
                 printf("\n");
             else
                 printf(" ");
         }
-        if (kRAMCapacity % cells_per_line != 0) //Если последняя строка неполная
+        if (kRAMCapacity % kCellsPerLine != 0) //Если последняя строка неполная
             printf("\n");
     }
 

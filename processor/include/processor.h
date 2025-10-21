@@ -1,6 +1,8 @@
 #ifndef PROCESSOR_H_
 #define PROCESSOR_H_
-
+//замена свитча на индексирование
+//из массива с командами выбирать структуру с командами и из выбранной структуры доставать указатель на функцию
+//написать верификатор этого массива
 #include "stack.h"
 #include "stdbool.h"
 #include <stdio.h>
@@ -13,6 +15,7 @@
 const int kStartingProcessorCapacity = 100;
 const int kRAMCapacity = 400;
 const int kSquareSideLength = 20;
+const int kCellsPerLine = 20;
 
 typedef struct {
     Stack  stack;        //для данных
