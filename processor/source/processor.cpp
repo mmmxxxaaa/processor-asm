@@ -41,7 +41,6 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
     int argument = 0;
 
     ProcessorErrorType proc_error = PROC_ERROR_NO;
-    int stack_error = 0;
 
     while (processor_pointer->instruction_counter < processor_pointer->code_buffer_size)
     {
@@ -64,23 +63,13 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
             case OP_IN:
             {
-                int value = 0;
-                printf("Enter a number: ");
-                scanf("%d", &value);
-                stack_error = StackPUSH(&processor_pointer->stack, value);
+                proc_error = ProcessOpIN(processor_pointer);
                 break;
             }
 
             case OP_JMP:
             {
-                if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
-                {
-                    proc_error = PROC_ERROR_INVALID_JUMP;
-                    break;
-                }
-                processor_pointer->instruction_counter = argument;
-                should_increment_instruction_pointer = false;
-
+                proc_error = ProcessOpJMP(processor_pointer, argument, &should_increment_instruction_pointer);
                 break;
             }
 
@@ -93,160 +82,49 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
             case OP_CALL:
             {
-                if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0)
-                {
-                    proc_error = PROC_ERROR_INVALID_JUMP;
-                    break;
-                }
-
-                //сохр адрес след команды после CALL
-                int return_address = processor_pointer->instruction_counter + 2;
-
-                stack_error = StackPUSH(&processor_pointer->return_stack, return_address);
-                if (stack_error != ERROR_NO)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                processor_pointer->instruction_counter = argument;
-                should_increment_instruction_pointer = false;
+                proc_error = ProcessOpCALL(processor_pointer, argument, &should_increment_instruction_pointer);
                 break;
             }
 
             case OP_RET:
             {
-                if (processor_pointer->return_stack.size == 0)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                int return_address = StackPOP(&processor_pointer->return_stack);
-
-                if (return_address < 0 || return_address >= processor_pointer->code_buffer_size || return_address % 2 != 0)
-                {
-                    proc_error = PROC_ERROR_INVALID_JUMP;
-                    break;
-                }
-
-                processor_pointer->instruction_counter = return_address;
-                should_increment_instruction_pointer = false;
+                proc_error = ProcessOpRET(processor_pointer, &should_increment_instruction_pointer);
                 break;
             }
 
             case OP_PUSHR: //засунуть в стек из регистра
             {
-                if (argument < 0 || argument >= kNRegisters)
-                {
-                    proc_error = PROC_ERROR_INVALID_REGISTER;
-                    break;
-                }
-
-                ElementType dusha_registra = processor_pointer->registers[argument];
-                stack_error = StackPUSH(&processor_pointer->stack, dusha_registra);
-
+                proc_error = ProcessOpPUSHR(processor_pointer, argument);
                 break;
             }
 
             case OP_POPR:  //достать из стека и поместить в регистр
             {
-                if (argument < 0 || argument >= kNRegisters)
-                {
-                    proc_error = PROC_ERROR_INVALID_REGISTER;
-                    break;
-                }
-
-                if (processor_pointer->stack.size == 0)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                ElementType value = StackPOP(&processor_pointer->stack);
-                processor_pointer->registers[argument] = value;
+                proc_error = ProcessOpPOPR(processor_pointer, argument);
                 break;
             }
 
             case OP_PUSHM:
             {
-                if (processor_pointer->ptr_RAM == NULL)
-                {
-                    proc_error = PROC_ERROR_RAM_ACCESS;
-                    break;
-                }
-
-                if (argument < 0 || argument >= kNRegisters)
-                {
-                    proc_error = PROC_ERROR_RAM_ACCESS;
-                    break;
-                }
-
-                int address = processor_pointer->registers[argument];
-                if (address < 0 || address >= kRAMCapacity)
-                {
-                    proc_error = PROC_ERROR_RAM_ACCESS;
-                    break;
-                }
-                ElementType value = processor_pointer->ptr_RAM[address];
-                StackPUSH(&processor_pointer->stack, value);
+                proc_error = ProcessOpPUSHM(processor_pointer, argument);
                 break;
             }
 
             case OP_POPM:
             {
-                if (processor_pointer->ptr_RAM == NULL)
-                {
-                    proc_error = PROC_ERROR_RAM_ACCESS;
-                    break;
-                }
-
-                if (argument < 0 || argument >= kNRegisters)
-                {
-                    proc_error = PROC_ERROR_RAM_ACCESS;
-                    break;
-                }
-
-                int address = processor_pointer->registers[argument];
-                if (address < 0 || address >= kRAMCapacity)
-                {
-                    proc_error = PROC_ERROR_RAM_ACCESS;
-                    break;
-                }
-
-                if (processor_pointer->stack.size == 0)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                ElementType value = StackPOP(&processor_pointer->stack);
-                processor_pointer->ptr_RAM[address] = value;
+                proc_error = ProcessOpPOPM(processor_pointer, argument);
                 break;
             }
 
             case OP_DRAW:
             {
-                for (int i = 0; i < kRAMCapacity; i++)
-                {
-                    printf("%c", processor_pointer->ptr_RAM[i] ? '#' : '.');
-                    if (i % kSquareSideLength == 0)
-                        printf("\n");
-                }
-                printf("\n");
+                proc_error = ProcessOpDRAW(processor_pointer);
                 break;
             }
 
             case OP_OUT:
             {
-                if (processor_pointer->stack.size == 0)
-                {
-                    proc_error = PROC_ERROR_STACK_OPERATION_FAILED;
-                    break;
-                }
-
-                ElementType value = StackPOP(&processor_pointer->stack);
-                printf("OUT -> %d\n", value);
+                proc_error = ProcessOpOUT(processor_pointer);
                 break;
             }
 
@@ -257,7 +135,7 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
                 return PROC_ERROR_UNKNOWN_OPCODE;
         }
 
-        if (proc_error != PROC_ERROR_NO || stack_error != ERROR_NO)
+        if (proc_error != PROC_ERROR_NO)
         {
             ProcDump(processor_pointer, proc_error, "Processor Execution failed");
             return proc_error;
@@ -402,6 +280,178 @@ void ProcDump(const Processor* proc, int errors, const char* msg)
     printf("Instruction counter: %d\n",  proc->instruction_counter);
     printf("Code buffer size:    %lu\n", proc->code_buffer_size);
     printf("Code buffer address: %p\n",  proc->code_buffer);
+}
+
+ProcessorErrorType ProcessOpIN(Processor* processor_pointer)
+{
+    assert(processor_pointer);
+
+    int value = 0;
+
+    printf("Enter a number: ");
+    scanf("%d", &value);
+    int stack_error = StackPUSH(&processor_pointer->stack, value);
+    if (stack_error != ERROR_NO)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpCALL(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0)
+        return PROC_ERROR_INVALID_JUMP;
+
+    int return_address = processor_pointer->instruction_counter + 2;
+    int stack_error = StackPUSH(&processor_pointer->return_stack, return_address);
+    if (stack_error != ERROR_NO)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    processor_pointer->instruction_counter = argument;
+    *should_increment_instruction_pointer = false;
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpRET(Processor* processor_pointer, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    if (processor_pointer->return_stack.size == 0)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    int return_address = StackPOP(&processor_pointer->return_stack);
+
+    if (return_address < 0 || return_address >= processor_pointer->code_buffer_size || return_address % 2 != 0)
+        return PROC_ERROR_INVALID_JUMP;
+
+    processor_pointer->instruction_counter = return_address;
+    *should_increment_instruction_pointer = false;
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpPUSHR(Processor* processor_pointer, int argument)
+{
+    assert(processor_pointer);
+
+    if (argument < 0 || argument >= kNRegisters)
+        return PROC_ERROR_INVALID_REGISTER;
+
+    ElementType dusha_registra = processor_pointer->registers[argument];
+    int stack_error = StackPUSH(&processor_pointer->stack, dusha_registra);
+    if (stack_error != ERROR_NO)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpPOPR(Processor* processor_pointer, int argument)
+{
+    assert(processor_pointer);
+
+    if (argument < 0 || argument >= kNRegisters)
+        return PROC_ERROR_INVALID_REGISTER;
+
+    if (processor_pointer->stack.size == 0)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    ElementType value = StackPOP(&processor_pointer->stack);
+    processor_pointer->registers[argument] = value;
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpPUSHM(Processor* processor_pointer, int argument)
+{
+    assert(processor_pointer);
+
+    if (processor_pointer->ptr_RAM == NULL)
+        return PROC_ERROR_RAM_ACCESS;
+
+    if (argument < 0 || argument >= kNRegisters)
+        return PROC_ERROR_RAM_ACCESS;
+
+    int address = processor_pointer->registers[argument];
+    if (address < 0 || address >= kRAMCapacity)
+        return PROC_ERROR_RAM_ACCESS;
+
+    ElementType value = processor_pointer->ptr_RAM[address];
+    StackPUSH(&processor_pointer->stack, value);
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpPOPM(Processor* processor_pointer, int argument)
+{
+    assert(processor_pointer);
+
+    if (processor_pointer->ptr_RAM == NULL)
+        return PROC_ERROR_RAM_ACCESS;
+
+    if (argument < 0 || argument >= kNRegisters)
+        return PROC_ERROR_RAM_ACCESS;
+
+    int address = processor_pointer->registers[argument];
+    if (address < 0 || address >= kRAMCapacity)
+        return PROC_ERROR_RAM_ACCESS;
+
+    if (processor_pointer->stack.size == 0)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    ElementType value = StackPOP(&processor_pointer->stack);
+    processor_pointer->ptr_RAM[address] = value;
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpDRAW(Processor* processor_pointer)
+{
+    assert(processor_pointer);
+
+    if (processor_pointer->ptr_RAM == NULL)
+        return PROC_ERROR_RAM_ACCESS;
+
+    for (int i = 0; i < kRAMCapacity; i++)
+    {
+        printf("%c", processor_pointer->ptr_RAM[i] ? '#' : '.');
+        if ((i + 1) % kSquareSideLength == 0)
+            printf("\n");
+    }
+    printf("\n");
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpOUT(Processor* processor_pointer)
+{
+    assert(processor_pointer);
+
+    if (processor_pointer->stack.size == 0)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    ElementType value = StackPOP(&processor_pointer->stack);
+    printf("OUT -> %d\n", value);
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpJMP(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    if (argument < 0 || argument >= processor_pointer->code_buffer_size || argument % 2 != 0) //%2, чтобы указатель указывал на операцию, а не на её аргумент (операции нумеруются с 0)
+        return PROC_ERROR_INVALID_JUMP;
+
+    processor_pointer->instruction_counter = argument;
+    *should_increment_instruction_pointer = false;
+
+    return PROC_ERROR_NO;
 }
 
 BODY_JUMP_FUNC_GENERATION_WITH_RETURNING_PROC_ERROR_TYPE(JB,  <)
