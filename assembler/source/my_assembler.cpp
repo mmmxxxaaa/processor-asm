@@ -5,74 +5,245 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ctype.h>
-
+//упорядочили хеши qsortом
+//дальше если совпали хеши упорядочиваем по строкам
+//дальше бинарный поиск
 #include "asm_error_types.h"
-// в массив труктур описаний комманд добавить поле хеш название команды и для каждой введенной команды его подсчитывать
-// в начале ассемблирования вызвать функ иниц которая посчитает хеш для каждой и запишет это в поле структуры после чего надо отсортировать массив структур по возрастанию 1 раз(в самом начале запуска)
+
+//FIXME
+// в массив структур описаний комманд добавить поле хеш название команды и для каждой введенной команды его подсчитывать
+// в начале ассемблирования вызвать функ инициализатор которая посчитает хеш для каждой и запишет это в поле структуры после чего надо отсортировать массив структур по возрастанию 1 раз(в самом начале запуска)
 // при чтении команды я ее хеширую а потом двоичным поиском ищу в массиве структур(по хешам)  быстый поиск команд
 
-//завести поле -- тип аргумента . Анализировать это поле в ходе ассемблирования
+// завести поле -- тип аргумента. Анализировать это поле в ходе ассемблирования
 // если поле говорит о том, что требуется аргумент, то нужно его прочитать и сделать все нужное
 // после этого перейти к след команде
 // лучше создать отдельную функцию для обработки аргументов
 // принимать тип аргумента, в зависимости от которого она будет его обрабатывать
 // sscanf
-#define COMPARE_COMMAND(cmd, name) if (strcmp(command, #name) == 0) return OP_##name
 
-OpCodes GetOpCode(const char* command)
+static CommandInfo command_infos[] = { //FIXME не могу сделать его константным, тогда надо делать его статик в cpp?
+    {"HLT",   0, OP_HLT,   ARG_NONE    },
+    {"PUSH",  0, OP_PUSH,  ARG_NUMBER  },
+    {"POP",   0, OP_POP,   ARG_NONE    },
+    {"ADD",   0, OP_ADD,   ARG_NONE    },
+    {"SUB",   0, OP_SUB,   ARG_NONE    },
+    {"MUL",   0, OP_MUL,   ARG_NONE    },
+    {"DIV",   0, OP_DIV,   ARG_NONE    },
+    {"SQRT",  0, OP_SQRT,  ARG_NONE    },
+    {"IN",    0, OP_IN,    ARG_NONE    },
+    {"OUT",   0, OP_OUT,   ARG_NONE    },
+    {"JMP",   0, OP_JMP,   ARG_LABEL   },
+    {"JB",    0, OP_JB,    ARG_LABEL   },
+    {"JBE",   0, OP_JBE,   ARG_LABEL   },
+    {"JA",    0, OP_JA,    ARG_LABEL   },
+    {"JAE",   0, OP_JAE,   ARG_LABEL   },
+    {"JE",    0, OP_JE,    ARG_LABEL   },
+    {"JNE",   0, OP_JNE,   ARG_LABEL   },
+    {"CALL",  0, OP_CALL,  ARG_LABEL   },
+    {"RET",   0, OP_RET,   ARG_NONE    },
+    {"PUSHM", 0, OP_PUSHM, ARG_MEMORY  },
+    {"POPM",  0, OP_POPM,  ARG_MEMORY  },
+    {"DRAW",  0, OP_DRAW,  ARG_NONE    },
+    {"PUSHR", 0, OP_PUSHR, ARG_REGISTER},
+    {"POPR",  0, OP_POPR,  ARG_REGISTER}
+};
+
+static size_t n_of_commands = sizeof(command_infos) / sizeof(command_infos[0]);
+
+int CompareCommandInfos(const void* first_cmd, const void* second_cmd) //компаратор для qsort
+{
+    const CommandInfo* cmdA = (const CommandInfo*) first_cmd;
+    const CommandInfo* cmdB = (const CommandInfo*) second_cmd;
+
+    if (cmdA->hash != cmdB->hash)
+        return (cmdA->hash < cmdB->hash) ? -1 : 1;
+
+    return strcmp(cmdA->name, cmdB->name);
+}
+
+unsigned int ComputeHash(const char* str) //djb2
+{
+    unsigned int hash = 5381;
+    int c = 0;
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + c; //умножаем на 33 без умножения
+    return hash;
+}
+
+void InitializeCommandInfos()
+{
+    for (size_t i = 0; i < n_of_commands; i++)
+        command_infos[i].hash = ComputeHash(command_infos[i].name);
+
+    qsort(command_infos, n_of_commands, sizeof(CommandInfo), CompareCommandInfos); //FIXME
+}
+
+CommandInfo* FindCommandByHash(unsigned int hash, const char* name)
+{
+    size_t left = 0;
+    size_t right = n_of_commands;
+
+    while (left < right)
+    {
+        size_t middle = left + (right - left) / 2;
+
+        if (command_infos[middle].hash < hash)
+            left = middle + 1;
+        else if (command_infos[middle].hash > hash)
+            right = middle;
+        else //FIXME вроде не насрал
+        {
+            // нашли хеш, а теперь проверим соседние элементы на коллизии
+            size_t same_hash_start = middle;
+            size_t same_hash_end = middle;
+
+            // начало блока с одинаковыми хешами
+            while (same_hash_start > 0 && command_infos[same_hash_start - 1].hash == hash)
+                same_hash_start--;
+
+            // конец блока с одинаковыми хешами
+            while (same_hash_end < n_of_commands - 1 && command_infos[same_hash_end + 1].hash == hash)
+                same_hash_end++;
+
+            // если блок состоит из одного элемента, то коллизий нет
+            if (same_hash_start == same_hash_end)
+                return &command_infos[middle];
+
+            // сли есть коллизии, тогда ищем по имени
+            for (size_t i = same_hash_start; i <= same_hash_end; i++)
+            {
+                if (strcmp(command_infos[i].name, name) == 0)
+                    return &command_infos[i];
+            }
+            return NULL;
+        }
+    }
+    return NULL; // не нашли хещ
+}
+
+OpCodes GetOpCode(const char* command) //FIXME
 {
     assert(command != NULL);
 
-    COMPARE_COMMAND(command, HLT);
-    COMPARE_COMMAND(command, PUSH);
-    COMPARE_COMMAND(command, POP);
-    COMPARE_COMMAND(command, ADD);
-    COMPARE_COMMAND(command, SUB);
-    COMPARE_COMMAND(command, MUL);
-    COMPARE_COMMAND(command, DIV);
-    COMPARE_COMMAND(command, SQRT);
-    COMPARE_COMMAND(command, IN);
-    COMPARE_COMMAND(command, OUT);
+    static int initialized = 0;
+    if (!initialized)
+    {
+        InitializeCommandInfos();
+        initialized = 1;
+    }
 
-    COMPARE_COMMAND(command, JMP);
-    COMPARE_COMMAND(command, JB);
-    COMPARE_COMMAND(command, JBE);
-    COMPARE_COMMAND(command, JA);
-    COMPARE_COMMAND(command, JAE);
-    COMPARE_COMMAND(command, JE);
-    COMPARE_COMMAND(command, JNE);
+    unsigned int current_hash = ComputeHash(command);
+    CommandInfo* current_cmd_info = FindCommandByHash(current_hash, command);
 
-    COMPARE_COMMAND(command, CALL);
-    COMPARE_COMMAND(command, RET);
-
-    COMPARE_COMMAND(command, PUSHM);
-    COMPARE_COMMAND(command, POPM);
-    COMPARE_COMMAND(command, DRAW);
-
-    COMPARE_COMMAND(command, PUSHR);
-    COMPARE_COMMAND(command, POPR);
+    if (current_cmd_info != NULL)
+        return current_cmd_info->opcode;
 
     fprintf(stderr, "Error: Unknown command '%s'\n", command);
     return OP_ERR;
 }
 
-const char* GetAsmErrorString(AssemblerErrorType error)
+ArgumentType GetArgumentType(OpCodes op)
 {
-    switch (error) {
-        case ASM_ERROR_NO:                      return "No error";
-        case ASM_ERROR_UNKNOWN_COMMAND:         return "Unknown command";
-        case ASM_ERROR_ALLOCATION_FAILED:       return "Memory allocation failed";
-        case ASM_ERROR_CANNOT_OPEN_INPUT_FILE:  return "Cannot open input file";
-        case ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE: return "Cannot open output file";
-        case ASM_ERROR_READING_FILE:            return "Error reading file";
-        case ASM_ERROR_EXPECTED_ARGUMENT:       return "Expected argument for PUSH";
-        case ASM_ERROR_EXPECTED_REGISTER:       return "Expected argument (register)";
-        case ASM_ERROR_INVALID_REGISTER:        return "Invalid register";
-        case ASM_ERROR_LABEL_TABLE:             return "Label Table Error";
-        case ASM_ERROR_UNDEFINED_LABEL:         return "Undefined label";
-        case ASM_ERROR_REDEFINITION_LABEL:      return "Redefinition of label";
-        default:                                return "Unknown error";
+    for (size_t i = 0; i < n_of_commands; i++)
+    {
+        if (command_infos[i].opcode == op)
+            return command_infos[i].arg_type;
     }
+    return ARG_NONE;
+}
+
+AssemblerErrorType ProcessNumberArgument(Assembler* assembler_pointer, char** buffer_ptr, int* binary_index)  //FIXME то же, что и было в кейсе пуша
+{
+    int argument = 0;
+    int chars_read = 0;
+
+    if (sscanf(*buffer_ptr, "%d%n", &argument, &chars_read) != 1)
+        return ASM_ERROR_EXPECTED_ARGUMENT;
+
+    assembler_pointer->binary_buffer[(*binary_index)++] = argument;
+    *buffer_ptr += chars_read;
+    *buffer_ptr = SkipAllSpaceSymbols(*buffer_ptr);
+
+    return ASM_ERROR_NO;
+}
+
+AssemblerErrorType ProcessLabelArgument(Assembler* assembler_pointer, char** buffer_ptr, int* binary_index) //FIXME
+{
+    char label_name[kMaxLabelLength] = {0};
+
+    assert(kMaxLabelLength == 32);
+
+    if (sscanf(*buffer_ptr, "%31s", label_name) != 1)
+        return ASM_ERROR_EXPECTED_ARGUMENT;
+
+    int label_address = FindLabel(&assembler_pointer->label_table, label_name);
+    if (label_address == -1)
+        return ASM_ERROR_UNDEFINED_LABEL;
+
+    assembler_pointer->binary_buffer[(*binary_index)++] = label_address;
+    *buffer_ptr += strlen(label_name);
+    *buffer_ptr = SkipAllSpaceSymbols(*buffer_ptr);
+
+    return ASM_ERROR_NO;
+}
+
+AssemblerErrorType ProcessRegisterArgument(Assembler* assembler_pointer, char** buffer_ptr, int* binary_index)//FIXME
+{
+    char register_name[kMaxCommandLength] = {0};
+
+    assert(kMaxCommandLength == 32);
+
+    int read_count = sscanf(*buffer_ptr, "%31s", register_name);
+    if (read_count != 1)
+        return ASM_ERROR_EXPECTED_REGISTER;
+
+    RegCodes reg = GetRegisterByName(register_name);
+    if (reg == REG_INVALID)
+        return ASM_ERROR_INVALID_REGISTER;
+
+    assembler_pointer->binary_buffer[(*binary_index)++] = (int)reg;
+    *buffer_ptr += strlen(register_name);
+    *buffer_ptr = SkipAllSpaceSymbols(*buffer_ptr);
+
+    return ASM_ERROR_NO;
+}
+
+AssemblerErrorType ProcessMemoryArgument(Assembler* assembler_pointer, char** buffer_ptr, int* binary_index) //FIXME
+{
+    *buffer_ptr = SkipAllSpaceSymbols(*buffer_ptr);
+
+    if (**buffer_ptr != '[')
+        return ASM_ERROR_EXPECTED_ARGUMENT;
+    (*buffer_ptr)++;
+
+    char* closing_bracket = strchr(*buffer_ptr, ']');
+    if (closing_bracket == NULL)
+        return ASM_ERROR_EXPECTED_ARGUMENT;
+
+    char register_name[kMaxCommandLength] = {};
+    int reg_name_length = closing_bracket - *buffer_ptr;
+    if (reg_name_length >= (int)sizeof(register_name))
+        return ASM_ERROR_INVALID_REGISTER;
+
+    strncpy(register_name, *buffer_ptr, reg_name_length);
+    register_name[reg_name_length] = '\0';
+
+    RegCodes reg = GetRegisterByName(register_name);
+    if (reg == REG_INVALID)
+        return ASM_ERROR_INVALID_REGISTER;
+
+    assembler_pointer->binary_buffer[(*binary_index)++] = (int)reg;
+    *buffer_ptr = closing_bracket + 1;
+    *buffer_ptr = SkipAllSpaceSymbols(*buffer_ptr);
+
+    return ASM_ERROR_NO;
+}
+
+AssemblerErrorType ProcessNoArgument(Assembler* assembler_pointer, int* binary_index) //FIXME
+{
+    assembler_pointer->binary_buffer[(*binary_index)++] = 0;
+    return ASM_ERROR_NO;
 }
 
 AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход только ради меток
@@ -88,7 +259,6 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
     while (sscanf(buffer_ptr, "%31s", token) == 1)
     {
         buffer_ptr += strlen(token);
-
         buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
 
         if (token[0] == kLabelIdSymbol)
@@ -126,196 +296,71 @@ AssemblerErrorType FirstPass(Assembler* assembler_pointer) //проход тол
     return ASM_ERROR_NO;
 }
 
-bool CommandRequiresArgument(OpCodes op)
-{
-    switch (op) {
-        case OP_PUSH:
-        case OP_POPR:
-        case OP_PUSHR:
-        case OP_JMP:
-        case OP_JB:
-        case OP_JBE:
-        case OP_JA:
-        case OP_JAE:
-        case OP_JE:
-        case OP_JNE:
-        case OP_CALL:
-        case OP_PUSHM:
-        case OP_POPM:
-            return true;
-        case OP_ERR:
-        case OP_HLT:
-        case OP_POP:
-        case OP_ADD:
-        case OP_SUB:
-        case OP_MUL:
-        case OP_DIV:
-        case OP_SQRT:
-        case OP_OUT:
-        case OP_IN:
-        case OP_RET:
-        case OP_DRAW:
-        default:
-            return false;
-    }
-}
-
 AssemblerErrorType SecondPass(Assembler* assembler_pointer) //этот проход уже с записью в бинарный файл
 {
     assert(assembler_pointer);
     assert(assembler_pointer->binary_file);
 
     char token[kMaxCommandLength] = {0};
-    int argument = 0;
     int binary_index = 0;
     int commands_processed = 0;
     char* buffer_ptr = assembler_pointer->instructions_buffer;
-    OpCodes operation_code = OP_ERR;
+    // OpCodes operation_code = OP_ERR;
 
     assert(kMaxCommandLength == 32);
 
     while (sscanf(buffer_ptr, "%31s", token) == 1)
     {
         buffer_ptr += strlen(token);
-
         buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
 
         if (token[0] == kLabelIdSymbol) //проверку можно в отедельную функцию (мб через strchr, чтобы искать двоеточие в конце)
             continue;
 
-        operation_code = GetOpCode(token);
-        if (operation_code == OP_ERR)
+        unsigned int hash = ComputeHash(token);
+        CommandInfo* cmd_info = FindCommandByHash(hash, token);
+
+        if (cmd_info == NULL)
             return ASM_ERROR_UNKNOWN_COMMAND;
+
+        OpCodes operation_code = cmd_info->opcode;
+        ArgumentType arg_type = cmd_info->arg_type;
 
         assembler_pointer->binary_buffer[binary_index++] = operation_code;
 
-        switch(operation_code)
+        AssemblerErrorType arg_error = ASM_ERROR_NO;
+        switch (arg_type) //FIXME теперь у меня свитч кейс для аргументов
         {
-            case OP_PUSH:
-            {
-                int chars_read = 0;
-                if (sscanf(buffer_ptr, "%d%n", &argument, &chars_read) != 1)
-                    return ASM_ERROR_EXPECTED_ARGUMENT;
-
-                assembler_pointer->binary_buffer[binary_index++] = argument;
-                buffer_ptr += chars_read; //сдвигаем указатель в буфере инструкций на длину этой строки
-                buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
+            case ARG_NUMBER:
+                arg_error = ProcessNumberArgument(assembler_pointer, &buffer_ptr, &binary_index);
                 break;
-            }
-
-            case OP_JMP:
-            case OP_JB:
-            case OP_JBE:
-            case OP_JA:
-            case OP_JAE:
-            case OP_JE:
-            case OP_JNE:
-            case OP_CALL:
-                {
-                    char label_name[kMaxLabelLength] = {0};
-
-                    assert(kMaxCommandLength == 32);
-
-                    if (sscanf(buffer_ptr, "%31s", label_name) == 1)
-                    {
-                        int label_address = FindLabel(&assembler_pointer->label_table, label_name);
-                        if (label_address == -1)
-                            return ASM_ERROR_UNDEFINED_LABEL;
-
-                        assembler_pointer->binary_buffer[binary_index++] = label_address;
-                        buffer_ptr += strlen(label_name);
-                        buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
-                    }
-                    else
-                        return ASM_ERROR_EXPECTED_ARGUMENT;
-
-                    break;
-                }
-            case OP_RET:
-                assembler_pointer->binary_buffer[binary_index++] = 0;
+            case ARG_LABEL:
+                arg_error = ProcessLabelArgument(assembler_pointer, &buffer_ptr, &binary_index);
                 break;
-
-            case OP_POPR:
-            case OP_PUSHR:
-                {
-                    buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
-
-                    char register_name[kMaxCommandLength] = {};
-
-                    assert(kMaxCommandLength == 32);
-
-                    int read_count = sscanf(buffer_ptr, "%31s", register_name);
-
-                    if (read_count != 1)
-                        return ASM_ERROR_EXPECTED_REGISTER;
-
-                    RegCodes reg = GetRegisterByName(register_name);
-                    if (reg == REG_INVALID)
-                        return ASM_ERROR_INVALID_REGISTER; //мб тут вывести еще регистры, которые пользователь может использовать
-
-                    assembler_pointer->binary_buffer[binary_index++] = (int) reg;
-                    buffer_ptr += strlen(register_name);
-                    buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
-                    break;
-                }
-
-            case OP_PUSHM:
-            case OP_POPM:
-            {
-                buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
-
-                if (*buffer_ptr != '[')
-                    return ASM_ERROR_EXPECTED_ARGUMENT;
-                buffer_ptr++;
-
-                char* closing_bracket = strchr(buffer_ptr, ']');
-                if (closing_bracket == NULL)
-                    return ASM_ERROR_EXPECTED_ARGUMENT;
-
-                char register_name[kMaxCommandLength] = {};
-                int reg_name_length = closing_bracket - buffer_ptr;
-                if (reg_name_length >= sizeof(register_name))
-                    return ASM_ERROR_INVALID_REGISTER;
-
-                strncpy(register_name, buffer_ptr, reg_name_length);
-
-                RegCodes reg = GetRegisterByName(register_name);
-                if (reg == REG_INVALID)
-                    return ASM_ERROR_INVALID_REGISTER; //мб тут вывести еще регистры, которые пользователь может использовать
-
-                assembler_pointer->binary_buffer[binary_index++] = (int) reg;
-                buffer_ptr = closing_bracket + 1;
-                buffer_ptr = SkipAllSpaceSymbols(buffer_ptr);
+            case ARG_REGISTER:
+                arg_error = ProcessRegisterArgument(assembler_pointer, &buffer_ptr, &binary_index);
                 break;
-            }
-
-            case OP_HLT:
-            case OP_ADD:
-            case OP_POP:
-            case OP_SUB:
-            case OP_MUL:
-            case OP_DIV:
-            case OP_SQRT:
-            case OP_OUT:
-            case OP_IN:
-            case OP_DRAW:
-                assembler_pointer->binary_buffer[binary_index++] = 0;
+            case ARG_MEMORY:
+                arg_error = ProcessMemoryArgument(assembler_pointer, &buffer_ptr, &binary_index);
                 break;
-
-            case OP_ERR:
+            case ARG_NONE:
+                arg_error = ProcessNoArgument(assembler_pointer, &binary_index);
+                break;
             default:
                 return ASM_ERROR_UNKNOWN_COMMAND;
         }
+        if (arg_error != ASM_ERROR_NO)
+            return arg_error;
 
         commands_processed++;
     }
+
     AssemblerErrorType error = WriteBinaryBufferToBinaryFile(assembler_pointer, binary_index);
     if (error != ASM_ERROR_NO)
         return error;
 
     printf("Processed %d commands\n", commands_processed);
     return ASM_ERROR_NO;
-
 }
 
 AssemblerErrorType WriteBinaryBufferToBinaryFile(Assembler* assembler_pointer, int number_of_ints)
@@ -329,6 +374,31 @@ AssemblerErrorType WriteBinaryBufferToBinaryFile(Assembler* assembler_pointer, i
     fwrite(assembler_pointer->binary_buffer, sizeof(assembler_pointer->binary_buffer[0]), number_of_ints, assembler_pointer->binary_file);
 
     return ASM_ERROR_NO;
+}
+
+bool CommandRequiresArgument(OpCodes op) //FIXME
+{
+    ArgumentType arg_type = GetArgumentType(op);
+    return (arg_type != ARG_NONE);
+}
+
+const char* GetAsmErrorString(AssemblerErrorType error)
+{
+    switch (error) {
+        case ASM_ERROR_NO:                      return "No error";
+        case ASM_ERROR_UNKNOWN_COMMAND:         return "Unknown command";
+        case ASM_ERROR_ALLOCATION_FAILED:       return "Memory allocation failed";
+        case ASM_ERROR_CANNOT_OPEN_INPUT_FILE:  return "Cannot open input file";
+        case ASM_ERROR_CANNOT_OPEN_OUTPUT_FILE: return "Cannot open output file";
+        case ASM_ERROR_READING_FILE:            return "Error reading file";
+        case ASM_ERROR_EXPECTED_ARGUMENT:       return "Expected argument for PUSH";
+        case ASM_ERROR_EXPECTED_REGISTER:       return "Expected argument (register)";
+        case ASM_ERROR_INVALID_REGISTER:        return "Invalid register";
+        case ASM_ERROR_LABEL_TABLE:             return "Label Table Error";
+        case ASM_ERROR_UNDEFINED_LABEL:         return "Undefined label";
+        case ASM_ERROR_REDEFINITION_LABEL:      return "Redefinition of label";
+        default:                                return "Unknown error";
+    }
 }
 
 AssemblerErrorType GetInstructionFileFileAndReadItToBuffer(Assembler* assembler_pointer, const char* input_filename)

@@ -1,15 +1,55 @@
 #include "processor.h"
-//массив структур с командами
+//FIXME
+// массив структур с командами
 // добавить в каждую указатель на функцию, которая будет вып в процессоре
 // при этом надо чтобы структура с командой имеющая номер n лежала бы в массиве на номере n
 // тогда возможно заменить свитч индексированием к этому массиву
 
+// в структуре, описывающей команду, должно быть имя строкой, номер как енам, указатель на функцию соответствующей команде
+//#ERROR макрос
 #include <assert.h>
 #include <string.h>
 #include <stdbool.h>
 #include "stack.h"
 #include "operations.h"
 #include "proc_error_types.h"
+
+#if defined(PROC)
+#define CALLBACK(callb) callb
+#else
+#define CALLBACK(callb) NULL
+
+
+const ProcessorCommand processor_commands[] = { //Если в хедере, то он не видит указатели на функции (или мне просто объявление этого массива поставить после прототипов функций?)
+    {"HLT",   OP_HLT,   ProcessOpHLT}, //FIXME см //ХуЙнЯ
+    {"PUSH",  OP_PUSH,  ProcessOpPUSH},
+    {"POP",   OP_POP,   ProcessOpPOP},
+    {"ADD",   OP_ADD,   ProcessOpADD},
+    {"SUB",   OP_SUB,   ProcessOpSUB},
+    {"MUL",   OP_MUL,   ProcessOpMUL},
+    {"DIV",   OP_DIV,   ProcessOpDIV},
+    {"SQRT",  OP_SQRT,  ProcessOpSQRT},
+    {"OUT",   OP_OUT,   ProcessOpOUT},
+    {"IN",    OP_IN,    ProcessOpIN},
+
+    {"JMP",   OP_JMP,   ProcessOpJMP},
+    {"JB",    OP_JB,    ProcessOpJB},
+    {"JBE",   OP_JBE,   ProcessOpJBE},
+    {"JA",    OP_JA,    ProcessOpJA},
+    {"JAE",   OP_JAE,   ProcessOpJAE},
+    {"JE",    OP_JE,    ProcessOpJE},
+    {"JNE",   OP_JNE,   ProcessOpJNE},
+
+    {"CALL",  OP_CALL,  ProcessOpCALL},
+    {"RET",   OP_RET,   ProcessOpRET},
+
+    {"PUSHM", OP_PUSHM, ProcessOpPUSHM},
+    {"POPM",  OP_POPM,  ProcessOpPOPM},
+    {"DRAW",  OP_DRAW,  ProcessOpDRAW},
+    {"PUSHR", OP_PUSHR, ProcessOpPUSHR},
+    {"POPR",  OP_POPR,  ProcessOpPOPR}
+};
+const size_t kProcessorCommandsCount = sizeof(processor_commands) / sizeof(processor_commands[0]); //FIXME куда это-то нахуй
 
 const char* GetProcErrorString(ProcessorErrorType error)
 {
@@ -29,6 +69,43 @@ const char* GetProcErrorString(ProcessorErrorType error)
     }
 }
 
+bool VerifyProcessorCommands()
+{
+    bool all_is_correct = true;
+
+    for (size_t i = 0; i < kProcessorCommandsCount; i++)
+    {
+        const ProcessorCommand* cmd = &processor_commands[i];
+
+        if (cmd->opcode != (OpCodes) i)
+        {
+            printf("ERROR: Command at index %lu has opcode %d (expected %lu)\n", i, cmd->opcode, i);
+            all_is_correct = false;
+        }
+
+        if (cmd->name == NULL)
+        {
+            printf("ERROR: Command at index %lu has NULL name\n", i);
+            all_is_correct = false;
+        }
+
+        if (cmd->handler == NULL)
+        {
+            printf("ERROR: Command at index %lu has NULL handler\n", i);
+            all_is_correct = false;
+        }
+    }
+
+    size_t n_of_expected_commands = OP_POPR + 1; //+1, т.к. енамчик с нуля
+    if (kProcessorCommandsCount != n_of_expected_commands)
+    {
+        printf("ERROR: Expected %lu commands, but array has %lu\n", n_of_expected_commands, kProcessorCommandsCount);
+        all_is_correct = false;
+    }
+
+    return all_is_correct;
+}
+
 ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 {
     assert(processor_pointer);
@@ -39,10 +116,9 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
     int op_code = OP_ERR;
     int argument = 0;
-
     ProcessorErrorType proc_error = PROC_ERROR_NO;
 
-    while (processor_pointer->instruction_counter < processor_pointer->code_buffer_size)
+    while (processor_pointer->instruction_counter < processor_pointer->code_buffer_size) //сюда
     {
         int current_instruction_counter = processor_pointer->instruction_counter;
         op_code  = processor_pointer->code_buffer[current_instruction_counter];
@@ -50,90 +126,15 @@ ProcessorErrorType ExecuteProcessor(Processor* processor_pointer)
 
         bool should_increment_instruction_pointer = true;
 
-        switch (op_code)
-        {
-            PROCESS_WITH_ARG_STACK_OP(PUSH, argument)
+        if (op_code < 0 || op_code >= (int)kProcessorCommandsCount)
+            return PROC_ERROR_UNKNOWN_OPCODE;
 
-            PROCESS_NO_ARG_STACK_OP(POP)
-            PROCESS_NO_ARG_STACK_OP(ADD)
-            PROCESS_NO_ARG_STACK_OP(SUB)
-            PROCESS_NO_ARG_STACK_OP(MUL)
-            PROCESS_NO_ARG_STACK_OP(DIV)
-            PROCESS_NO_ARG_STACK_OP(SQRT)
+        if (op_code == OP_HLT) //FIXME хуйня какая-то
+            break;
 
-            case OP_IN:
-            {
-                proc_error = ProcessOpIN(processor_pointer);
-                break;
-            }
+        ProcessorCommand command = processor_commands[op_code];
 
-            case OP_JMP:
-            {
-                proc_error = ProcessOpJMP(processor_pointer, argument, &should_increment_instruction_pointer);
-                break;
-            }
-
-            PROCESS_JUMP_OP(JB)
-            PROCESS_JUMP_OP(JBE)
-            PROCESS_JUMP_OP(JA)
-            PROCESS_JUMP_OP(JAE)
-            PROCESS_JUMP_OP(JE)
-            PROCESS_JUMP_OP(JNE)
-
-            case OP_CALL:
-            {
-                proc_error = ProcessOpCALL(processor_pointer, argument, &should_increment_instruction_pointer);
-                break;
-            }
-
-            case OP_RET:
-            {
-                proc_error = ProcessOpRET(processor_pointer, &should_increment_instruction_pointer);
-                break;
-            }
-
-            case OP_PUSHR: //засунуть в стек из регистра
-            {
-                proc_error = ProcessOpPUSHR(processor_pointer, argument);
-                break;
-            }
-
-            case OP_POPR:  //достать из стека и поместить в регистр
-            {
-                proc_error = ProcessOpPOPR(processor_pointer, argument);
-                break;
-            }
-
-            case OP_PUSHM:
-            {
-                proc_error = ProcessOpPUSHM(processor_pointer, argument);
-                break;
-            }
-
-            case OP_POPM:
-            {
-                proc_error = ProcessOpPOPM(processor_pointer, argument);
-                break;
-            }
-
-            case OP_DRAW:
-            {
-                proc_error = ProcessOpDRAW(processor_pointer);
-                break;
-            }
-
-            case OP_OUT:
-            {
-                proc_error = ProcessOpOUT(processor_pointer);
-                break;
-            }
-
-            case OP_HLT:
-                return PROC_ERROR_NO;
-
-            default:
-                return PROC_ERROR_UNKNOWN_OPCODE;
-        }
+        proc_error = command.handler(processor_pointer, argument, &should_increment_instruction_pointer);
 
         if (proc_error != PROC_ERROR_NO)
         {
@@ -189,6 +190,9 @@ ProcessorErrorType ProcessorCtor(Processor* processor_pointer, size_t starting_c
 {
     assert(processor_pointer);
     assert(starting_capacity > 0);
+
+    if (!VerifyProcessorCommands()) //FIXME он должен быть тут или в начале функции EXECUTEPROCESSOR со статик флагом, что мы уже проверили
+        return PROC_ERROR_INVALID_STATE;
 
     int stack_ctor_result = StackCtor(&(processor_pointer->stack), starting_capacity);
     if (stack_ctor_result != ERROR_NO)
@@ -282,9 +286,95 @@ void ProcDump(const Processor* proc, int errors, const char* msg)
     printf("Code buffer address: %p\n",  proc->code_buffer);
 }
 
-ProcessorErrorType ProcessOpIN(Processor* processor_pointer)
+ProcessorErrorType ProcessOpHLT(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)//ХУЙНЯ ОНА НАХУЙ НЕ НУЖНА, НО ПРИ ЭТОМ ЧТО Я ТОГДА ЗАСУНУ В МАССИВ СТРУКТУР???
 {
     assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpPUSH(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    int stack_error = StackPUSH(&processor_pointer->stack, argument);
+    return (stack_error != ERROR_NO) ? PROC_ERROR_STACK_OPERATION_FAILED : PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpPOP(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    int stack_error = StackPOP(&processor_pointer->stack);
+    return (stack_error != ERROR_NO) ? PROC_ERROR_STACK_OPERATION_FAILED : PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpADD(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    int stack_error = StackADD(&processor_pointer->stack);
+    return (stack_error != ERROR_NO) ? PROC_ERROR_STACK_OPERATION_FAILED : PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpSUB(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    int stack_error = StackSUB(&processor_pointer->stack);
+    return (stack_error != ERROR_NO) ? PROC_ERROR_STACK_OPERATION_FAILED : PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpMUL(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    int stack_error = StackMUL(&processor_pointer->stack);
+    return (stack_error != ERROR_NO) ? PROC_ERROR_STACK_OPERATION_FAILED : PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpDIV(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    int stack_error = StackDIV(&processor_pointer->stack);
+    return (stack_error != ERROR_NO) ? PROC_ERROR_STACK_OPERATION_FAILED : PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpSQRT(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    int stack_error = StackSQRT(&processor_pointer->stack);
+    return (stack_error != ERROR_NO) ? PROC_ERROR_STACK_OPERATION_FAILED : PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpOUT(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    if (processor_pointer->stack.size == 0)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    ElementType value = StackPOP(&processor_pointer->stack);
+    printf("OUT -> %d\n", value);
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpIN(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
 
     int value = 0;
 
@@ -316,7 +406,7 @@ ProcessorErrorType ProcessOpCALL(Processor* processor_pointer, int argument, boo
     return PROC_ERROR_NO;
 }
 
-ProcessorErrorType ProcessOpRET(Processor* processor_pointer, bool* should_increment_instruction_pointer)
+ProcessorErrorType ProcessOpRET(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
 {
     assert(processor_pointer);
     assert(should_increment_instruction_pointer);
@@ -335,40 +425,10 @@ ProcessorErrorType ProcessOpRET(Processor* processor_pointer, bool* should_incre
     return PROC_ERROR_NO;
 }
 
-ProcessorErrorType ProcessOpPUSHR(Processor* processor_pointer, int argument)
+ProcessorErrorType ProcessOpPUSHM(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
 {
     assert(processor_pointer);
-
-    if (argument < 0 || argument >= kNRegisters)
-        return PROC_ERROR_INVALID_REGISTER;
-
-    ElementType dusha_registra = processor_pointer->registers[argument];
-    int stack_error = StackPUSH(&processor_pointer->stack, dusha_registra);
-    if (stack_error != ERROR_NO)
-        return PROC_ERROR_STACK_OPERATION_FAILED;
-
-    return PROC_ERROR_NO;
-}
-
-ProcessorErrorType ProcessOpPOPR(Processor* processor_pointer, int argument)
-{
-    assert(processor_pointer);
-
-    if (argument < 0 || argument >= kNRegisters)
-        return PROC_ERROR_INVALID_REGISTER;
-
-    if (processor_pointer->stack.size == 0)
-        return PROC_ERROR_STACK_OPERATION_FAILED;
-
-    ElementType value = StackPOP(&processor_pointer->stack);
-    processor_pointer->registers[argument] = value;
-
-    return PROC_ERROR_NO;
-}
-
-ProcessorErrorType ProcessOpPUSHM(Processor* processor_pointer, int argument)
-{
-    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
 
     if (processor_pointer->ptr_RAM == NULL)
         return PROC_ERROR_RAM_ACCESS;
@@ -386,9 +446,10 @@ ProcessorErrorType ProcessOpPUSHM(Processor* processor_pointer, int argument)
     return PROC_ERROR_NO;
 }
 
-ProcessorErrorType ProcessOpPOPM(Processor* processor_pointer, int argument)
+ProcessorErrorType ProcessOpPOPM(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
 {
     assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
 
     if (processor_pointer->ptr_RAM == NULL)
         return PROC_ERROR_RAM_ACCESS;
@@ -409,9 +470,10 @@ ProcessorErrorType ProcessOpPOPM(Processor* processor_pointer, int argument)
     return PROC_ERROR_NO;
 }
 
-ProcessorErrorType ProcessOpDRAW(Processor* processor_pointer)
+ProcessorErrorType ProcessOpDRAW(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
 {
     assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
 
     if (processor_pointer->ptr_RAM == NULL)
         return PROC_ERROR_RAM_ACCESS;
@@ -419,6 +481,7 @@ ProcessorErrorType ProcessOpDRAW(Processor* processor_pointer)
     for (int i = 0; i < kRAMCapacity; i++)
     {
         printf("%c", processor_pointer->ptr_RAM[i] ? '#' : '.');
+        printf(" ");
         if ((i + 1) % kSquareSideLength == 0)
             printf("\n");
     }
@@ -427,15 +490,35 @@ ProcessorErrorType ProcessOpDRAW(Processor* processor_pointer)
     return PROC_ERROR_NO;
 }
 
-ProcessorErrorType ProcessOpOUT(Processor* processor_pointer)
+ProcessorErrorType ProcessOpPUSHR(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
 {
     assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    if (argument < 0 || argument >= kNRegisters)
+        return PROC_ERROR_INVALID_REGISTER;
+
+    ElementType dusha_registra = processor_pointer->registers[argument];
+    int stack_error = StackPUSH(&processor_pointer->stack, dusha_registra);
+    if (stack_error != ERROR_NO)
+        return PROC_ERROR_STACK_OPERATION_FAILED;
+
+    return PROC_ERROR_NO;
+}
+
+ProcessorErrorType ProcessOpPOPR(Processor* processor_pointer, int argument, bool* should_increment_instruction_pointer)
+{
+    assert(processor_pointer);
+    assert(should_increment_instruction_pointer);
+
+    if (argument < 0 || argument >= kNRegisters)
+        return PROC_ERROR_INVALID_REGISTER;
 
     if (processor_pointer->stack.size == 0)
         return PROC_ERROR_STACK_OPERATION_FAILED;
 
     ElementType value = StackPOP(&processor_pointer->stack);
-    printf("OUT -> %d\n", value);
+    processor_pointer->registers[argument] = value;
 
     return PROC_ERROR_NO;
 }

@@ -39,8 +39,8 @@ typedef enum {
     OP_POPM   = 20,
     OP_DRAW   = 21,
 
-    OP_PUSHR  = 33,
-    OP_POPR   = 34,
+    OP_PUSHR  = 22,
+    OP_POPR   = 23
 } OpCodes;
 
 long int GetFileSize(FILE* file);

@@ -24,6 +24,14 @@ typedef enum {
     REG_RHX = 7,
 } RegCodes;
 
+typedef enum {
+    ARG_NONE     = 0,
+    ARG_NUMBER   = 1,
+    ARG_LABEL    = 2,
+    ARG_REGISTER = 3,
+    ARG_MEMORY   = 4
+} ArgumentType;
+
 typedef struct {
     char name[kMaxLabelLength];
     int  address;
@@ -45,10 +53,33 @@ typedef struct {
     LabelTable  label_table;
 } Assembler;
 
+typedef struct {
+    const char* name;
+    unsigned int hash;
+    OpCodes opcode;
+    ArgumentType arg_type;
+#endif
+} CommandInfo;
+
+-D PROC
+
+//FIXME
+int CompareCommandInfos(const void* first_cmd, const void* second_cmd);
+unsigned int ComputeHash(const char* str);
+void InitializeCommandInfos();
+CommandInfo* FindCommandByHash(unsigned int hash, const char* name);
 OpCodes GetOpCode(const char* command);
-const char* GetAsmErrorString(AssemblerErrorType error);
+ArgumentType GetArgumentType(OpCodes op);
+AssemblerErrorType ProcessNumberArgument  (Assembler* assembler_pointer, char** buffer_ptr, int* binary_index);
+AssemblerErrorType ProcessLabelArgument   (Assembler* assembler_pointer, char** buffer_ptr, int* binary_index);
+AssemblerErrorType ProcessRegisterArgument(Assembler* assembler_pointer, char** buffer_ptr, int* binary_index);
+AssemblerErrorType ProcessMemoryArgument  (Assembler* assembler_pointer, char** buffer_ptr, int* binary_index);
+AssemblerErrorType ProcessNoArgument      (Assembler* assembler_pointer,                    int* binary_index);
+//FIXME
 
 bool CommandRequiresArgument(OpCodes op);
+const char* GetAsmErrorString(AssemblerErrorType error);
+
 AssemblerErrorType FirstPass(Assembler* assembler_pointer);
 AssemblerErrorType SecondPass(Assembler* assembler_pointer);
 AssemblerErrorType WriteBinaryBufferToBinaryFile(Assembler* assembler_pointer, int number_of_ints);
@@ -61,7 +92,6 @@ FILE* GetInputFile(const char* instruction_filename);
 FILE* GetOutputFile(const char* output_filename);
 
 RegCodes GetRegisterByName(const char* name);
-
 
 void InitLabelTable(LabelTable* ptr_table);
 int FindLabel(LabelTable* table, const char* name);
